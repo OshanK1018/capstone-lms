@@ -1,0 +1,30 @@
+/* Global app settings. */
+:root {
+  /* Sets the default font stack for the whole project. */
+  font-family:
+    Inter, Arial, Helvetica, sans-serif;
+
+  /* Prevents the browser from automatically creating fake bold/italic styles. */
+  font-synthesis: none;
+
+  /* Improves text rendering so text looks cleaner and easier to read. */
+  text-rendering: optimizeLegibility;
+}
+
+/* Base page styling for the browser body. */
+body {
+ 
+  min-width: 320px;
+
+  min-height: 100vh;
+
+  margin: 0;
+}
+
+/* Makes form elements use the same font as the rest of the app. */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
