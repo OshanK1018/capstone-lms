@@ -22,41 +22,31 @@ const connectionPool = SQL.createPool(
         multipleStatements: true
     }
 );
-
-
 const port = process.env.port || 3000;
 
 // creates student
 app.post('/api/Users',
     async (req, res) => {
-        const { name, email, password, role } = req.body;
-
-        if (!name || !name.trim()) {
-            return res.status(400).json({ error: "No name given." });
-        }
-        if (!email || !email.trim()) {
-            return res.status(400).json({ error: "No email given." });
-        }
-        if (!password || !password.trim()) {
-            return res.status(400).json({ error: "No password given." })
-        }
-        if (!role || !role.trim()) {
-            return res.status(400).json({ error: "No role given. "});
+        let { name, email, password, role } = req.body;
+        for (value in req.body) {
+            value = value.trim();
         }
 
-        const cleanName = name.trim();
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanPswd = password.trim();
-        const cleanRole = role.trim();
+        if (!name)     { return res.status(400).json({ error: "No name given." }); }
+        if (!email)    { return res.status(400).json({ error: "No email given." }); }
+        if (!password) { return res.status(400).json({ error: "No password given." }); }
+        if (!role)     { return res.status(400).json({ error: "No role given. "}); }
 
-        if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        if (!email.includes('@') || !email.includes('.')) {
             return res.status(400).json({ error: "Email is not valid. " });
         }
-        if (!cleanPswd.length > 8) {
+        if (!password.length > 8) {
             return res.status(400).json({ error: "Password is too short. Must be more than 8 characters long." });
         }
+
+
         const [alreadyExistingEmail] = await connectionPool.query(
-            'SELECT user_id FROM Users WHERE email = ?', [cleanEmail]
+            'SELECT user_id FROM Users WHERE email = ?', [email]
         );
         if (alreadyExistingEmail.length > 0) {
             return res.status(409).json({ error: "Email already exists." });
@@ -65,16 +55,16 @@ app.post('/api/Users',
         try { // has to be hashed--will add later
             const [successfulInsertion] = await connectionPool.query(
                 'INSERT INTO Users (name, email, password, role) VALUES (?, ?, ?, ?)',
-                [cleanName, cleanEmail, cleanPswd, cleanRole]
+                [name, email, password, role]
             );
             res.status(201).json({
-                message: "Student " + cleanName + " created",
+                message: "Student " + name + " created",
                 student: {
                     id: successfulInsertion.insertId,
-                    name: cleanName,
-                    email: cleanEmail,
-                    role: cleanRole
-                }
+                    name: name,
+                    email: email,
+                    role: role
+                },
             });
         }
         catch (error) {
