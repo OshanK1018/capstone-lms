@@ -5,13 +5,13 @@ const API_URL = process.env.API_URL || "http://localhost:3000/api"
 
 export async function createUser(name, email, password, role) {
     try {
-        const res = await fetch(`${API_URL}/students`, 
+        const res = await fetch(`${API_URL}/Users`, 
             {
                 method: 'POST',
                 headers: {
                     'Content-Type' : 'application/json'
                 },
-                body: JSON.stringify({name, email, password})
+                body: JSON.stringify({name, email, password, role})
             });
             const data = await res.json();
 
