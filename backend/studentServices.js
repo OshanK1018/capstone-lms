@@ -5,7 +5,7 @@ const API_URL = process.env.API_URL || "http://localhost:3000/api"
 
 export async function createStudent(name, email, password) {
     try {
-        const res = await fetch("${API_URL}/students", 
+        const res = await fetch(`${API_URL}/students`, 
             {
                 method: 'POST',
                 headers: {
@@ -27,6 +27,14 @@ export async function createStudent(name, email, password) {
     }
 }
 
-export async function getAssignmentForStudent(assignmentID) {
-
+export async function enrollStudentInCourse(id, courseID) {
+    try {
+        const res = await fetch("",
+            {
+            }
+        )
+    }
+    catch {
+        
+    }
 }
