@@ -3,7 +3,7 @@ const API_URL = process.env.API_URL || "http://localhost:3000/api"
 // messenger functions to encapsulate database accesses in server.js
 // below are example functions
 
-export async function createStudent(name, email, password) {
+export async function createUser(name, email, password, role) {
     try {
         const res = await fetch(`${API_URL}/students`, 
             {

@@ -1,17 +1,10 @@
-/* 
-    Assumes Sameer is going to be using MySQL, can be changed later if you want - Tori
-    Sameer needs to create database env file 
-
-    assumes students table is named "students" with fields:
-        id, name, email, password, created_at
-    
-*/
-
 require('dotenv').config();
 
+const fs = require('fs').promises;
 const express = require('express');
 const SQL = require('mysql2/promise');
-const cors = require('cors')
+const cors = require('cors');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -19,22 +12,24 @@ app.use(express.json());
 
 const connectionPool = SQL.createPool(
     {
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'user',
-        password: process.env.DB_PASSWORD || 'password',
-        database: process.env.DB_NAME || 'lms',
+        host: 'localhost',
+        user: 'testuser',
+        password: 'testpass',            
+        database: 'capstone_db', 
         waitForConnections: true,
         connectionLimit: 100,
-        queueLimit: 0
+        queueLimit: 0,
+        multipleStatements: true
     }
 );
+
 
 const port = process.env.port || 3000;
 
 // creates student
-app.post('/api/students',
+app.post('/api/Users',
     async (req, res) => {
-        const { name, email, password } = req.body;
+        const { name, email, password, role } = req.body;
 
         if (!name || !name.trim()) {
             return res.status(400).json({ error: "No name given." });
@@ -45,10 +40,14 @@ app.post('/api/students',
         if (!password || !password.trim()) {
             return res.status(400).json({ error: "No password given." })
         }
+        if (!role || !role.trim()) {
+            return res.status(400).json({ error: "No role given. "});
+        }
 
         const cleanName = name.trim();
         const cleanEmail = email.trim().toLowerCase();
         const cleanPswd = password.trim();
+        const cleanRole = role.trim();
 
         if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
             return res.status(400).json({ error: "Email is not valid. " });
@@ -56,9 +55,8 @@ app.post('/api/students',
         if (!cleanPswd.length > 8) {
             return res.status(400).json({ error: "Password is too short. Must be more than 8 characters long." });
         }
-
         const [alreadyExistingEmail] = await connectionPool.query(
-            'SELECT id FROM students WHERE email = ?', [cleanEmail]
+            'SELECT user_id FROM Users WHERE email = ?', [cleanEmail]
         );
         if (alreadyExistingEmail.length > 0) {
             return res.status(409).json({ error: "Email already exists." });
@@ -66,15 +64,16 @@ app.post('/api/students',
 
         try { // has to be hashed--will add later
             const [successfulInsertion] = await connectionPool.query(
-                'INSERT INTO students (name, email, password, created_at) VALUES (?, ?, ?, NOW())',
-                [cleanName, cleanEmail, cleanPswd]
+                'INSERT INTO Users (name, email, password, role) VALUES (?, ?, ?, ?)',
+                [cleanName, cleanEmail, cleanPswd, cleanRole]
             );
             res.status(201).json({
                 message: "Student " + cleanName + " created",
                 student: {
                     id: successfulInsertion.insertId,
                     name: cleanName,
-                    email: cleanEmail
+                    email: cleanEmail,
+                    role: cleanRole
                 }
             });
         }
