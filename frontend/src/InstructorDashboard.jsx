@@ -1,6 +1,8 @@
 import "./InstructorDashboard.css";
 
-// Icon imports from lucide-react.
+import { useNavigate } from "react-router-dom";
+
+// Icons used throughout the instructor dashboard.
 import {
   LayoutDashboard,
   BookOpen,
@@ -15,7 +17,7 @@ import {
   Clock,
 } from "lucide-react";
 
-// Temporary course data used to display the instructor's current courses.
+// Temporary course data until the backend is connected.
 const courses = [
   {
     id: 1,
@@ -43,7 +45,7 @@ const courses = [
   },
 ];
 
-// Temporary task data used to show upcoming instructor responsibilities.
+// Temporary task data until the backend is connected.
 const upcomingTasks = [
   {
     id: 1,
@@ -66,26 +68,34 @@ const upcomingTasks = [
 ];
 
 function InstructorDashboard() {
-  // Placeholder function for creating a new course.
+  const navigate = useNavigate();
+
+  // Opens the instructor course page.
   const handleCreateCourse = () => {
-    alert("The course creation form will be added in the next stage.");
+    navigate("/instructor/courses");
   };
 
-  // Placeholder function for sidebar navigation.
-  const handleNavigation = (pageName) => {
-    alert(`${pageName} page will be added in the next stage.`);
+  // Opens the selected instructor page.
+  const handleNavigation = (path) => {
+    navigate(path);
   };
 
-  // Placeholder function for managing a specific course.
+  // Temporarily opens the courses page until course-specific routes are added.
   const handleManageCourse = (course) => {
-    alert(`Opening ${course.code}: ${course.title}`);
+    navigate("/instructor/courses", {
+      state: { selectedCourse: course },
+    });
+  };
+
+  // Returns the user to the main page for now.
+  const handleLogout = () => {
+    navigate("/");
   };
 
   return (
     <div className="app-layout">
-      {/* Sidebar section with logo, main navigation links, and footer buttons */}
+      {/* Instructor sidebar */}
       <aside className="sidebar">
-        {/* LMS logo and  name */}
         <div className="logo">
           <div className="logo-icon">LMS</div>
 
@@ -95,16 +105,19 @@ function InstructorDashboard() {
           </div>
         </div>
 
-        {/* Main sidebar navigation */}
+        {/* Main navigation */}
         <nav className="navigation">
-          <button className="nav-item active">
+          <button
+            className="nav-item active"
+            onClick={() => handleNavigation("/instructor/dashboard")}
+          >
             <LayoutDashboard size={20} />
             Dashboard
           </button>
 
           <button
             className="nav-item"
-            onClick={() => handleNavigation("My Courses")}
+            onClick={() => handleNavigation("/instructor/courses")}
           >
             <BookOpen size={20} />
             My Courses
@@ -112,7 +125,7 @@ function InstructorDashboard() {
 
           <button
             className="nav-item"
-            onClick={() => handleNavigation("Assignments")}
+            onClick={() => handleNavigation("/instructor/assignments")}
           >
             <ClipboardList size={20} />
             Assignments
@@ -120,7 +133,7 @@ function InstructorDashboard() {
 
           <button
             className="nav-item"
-            onClick={() => handleNavigation("Quizzes")}
+            onClick={() => handleNavigation("/instructor/quizzes")}
           >
             <CircleHelp size={20} />
             Quizzes
@@ -128,7 +141,7 @@ function InstructorDashboard() {
 
           <button
             className="nav-item"
-            onClick={() => handleNavigation("Gradebook")}
+            onClick={() => handleNavigation("/instructor/gradebook")}
           >
             <GraduationCap size={20} />
             Gradebook
@@ -136,18 +149,18 @@ function InstructorDashboard() {
 
           <button
             className="nav-item"
-            onClick={() => handleNavigation("Announcements")}
+            onClick={() => handleNavigation("/instructor/announcements")}
           >
             <Megaphone size={20} />
             Announcements
           </button>
         </nav>
 
-        {/* Bottom sidebar actions for settings and logging out */}
+        {/* Settings and logout */}
         <div className="sidebar-footer">
           <button
             className="nav-item"
-            onClick={() => handleNavigation("Settings")}
+            onClick={() => handleNavigation("/instructor/settings")}
           >
             <Settings size={20} />
             Settings
@@ -155,7 +168,7 @@ function InstructorDashboard() {
 
           <button
             className="nav-item logout"
-            onClick={() => handleNavigation("Log Out")}
+            onClick={handleLogout}
           >
             <LogOut size={20} />
             Log Out
@@ -163,9 +176,8 @@ function InstructorDashboard() {
         </div>
       </aside>
 
-      {/* Main dashboard content area */}
+      {/* Main dashboard content */}
       <main className="main-content">
-        {/* Top bar showing page title and instructor profile */}
         <header className="topbar">
           <div>
             <p className="page-label">Instructor Portal</p>
@@ -182,19 +194,22 @@ function InstructorDashboard() {
           </div>
         </header>
 
-        {/* Welcome message and create course button */}
+        {/* Welcome section */}
         <section className="welcome-section">
           <div>
             <h2>Welcome back, Oshan!</h2>
             <p>Here is what is happening in your courses today.</p>
           </div>
 
-          <button className="primary-button" onClick={handleCreateCourse}>
+          <button
+            className="primary-button"
+            onClick={handleCreateCourse}
+          >
             + Create Course
           </button>
         </section>
 
-        {/* Summary statistic cards for quick dashboard information */}
+        {/* Dashboard statistics */}
         <section className="stat-grid">
           <article className="stat-card">
             <div className="stat-icon blue">
@@ -241,9 +256,8 @@ function InstructorDashboard() {
           </article>
         </section>
 
-        {/* Main dashboard grid containing course cards and upcoming tasks */}
+        {/* Courses and upcoming tasks */}
         <div className="dashboard-grid">
-          {/* Course panel showing the instructor's current courses */}
           <section className="panel courses-panel">
             <div className="panel-header">
               <div>
@@ -253,17 +267,18 @@ function InstructorDashboard() {
 
               <button
                 className="text-button"
-                onClick={() => handleNavigation("My Courses")}
+                onClick={() => handleNavigation("/instructor/courses")}
               >
                 View All
               </button>
             </div>
 
-            {/* Loops through the courses array and creates a card for each course */}
             <div className="course-list">
               {courses.map((course) => (
-                <article className="course-card" key={course.id}>
-                  {/* Colored bar to separate courses */}
+                <article
+                  className="course-card"
+                  key={course.id}
+                >
                   <div
                     className="course-color"
                     style={{ backgroundColor: course.color }}
@@ -291,7 +306,6 @@ function InstructorDashboard() {
             </div>
           </section>
 
-          {/* Task panel showing upcoming instructor tasks */}
           <section className="panel tasks-panel">
             <div className="panel-header">
               <div>
@@ -300,10 +314,12 @@ function InstructorDashboard() {
               </div>
             </div>
 
-            {/* Loops through the upcomingTasks array and displays each task */}
             <div className="task-list">
               {upcomingTasks.map((task) => (
-                <article className="task-item" key={task.id}>
+                <article
+                  className="task-item"
+                  key={task.id}
+                >
                   <div className="task-check">
                     <Clock size={21} />
                   </div>
@@ -324,4 +340,4 @@ function InstructorDashboard() {
   );
 }
 
-export default  InstructorDashboard;
+export default InstructorDashboard;
