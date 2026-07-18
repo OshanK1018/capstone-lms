@@ -2,16 +2,11 @@ import "./InstructorDashboard.css";
 
 import { useNavigate } from "react-router-dom";
 
-// Icons used throughout the instructor dashboard.
+import InstructorSidebar from "./components/InstructorSidebar";
+
+// Icons used inside the dashboard content.
 import {
-  LayoutDashboard,
   BookOpen,
-  ClipboardList,
-  CircleHelp,
-  GraduationCap,
-  Megaphone,
-  Settings,
-  LogOut,
   Users,
   ClipboardCheck,
   Clock,
@@ -70,7 +65,7 @@ const upcomingTasks = [
 function InstructorDashboard() {
   const navigate = useNavigate();
 
-  // Opens the instructor course page.
+  // Opens the instructor courses page.
   const handleCreateCourse = () => {
     navigate("/instructor/courses");
   };
@@ -80,101 +75,17 @@ function InstructorDashboard() {
     navigate(path);
   };
 
-  // Temporarily opens the courses page until course-specific routes are added.
+  // Sends the selected course to the Courses page.
   const handleManageCourse = (course) => {
     navigate("/instructor/courses", {
       state: { selectedCourse: course },
     });
   };
 
-  // Returns the user to the main page for now.
-  const handleLogout = () => {
-    navigate("/");
-  };
-
   return (
     <div className="app-layout">
-      {/* Instructor sidebar */}
-      <aside className="sidebar">
-        <div className="logo">
-          <div className="logo-icon">LMS</div>
-
-          <div className="logo-text">
-            <strong>LMS</strong>
-            <span>Learning Management System</span>
-          </div>
-        </div>
-
-        {/* Main navigation */}
-        <nav className="navigation">
-          <button
-            className="nav-item active"
-            onClick={() => handleNavigation("/instructor/dashboard")}
-          >
-            <LayoutDashboard size={20} />
-            Dashboard
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/courses")}
-          >
-            <BookOpen size={20} />
-            My Courses
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/assignments")}
-          >
-            <ClipboardList size={20} />
-            Assignments
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/quizzes")}
-          >
-            <CircleHelp size={20} />
-            Quizzes
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/gradebook")}
-          >
-            <GraduationCap size={20} />
-            Gradebook
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/announcements")}
-          >
-            <Megaphone size={20} />
-            Announcements
-          </button>
-        </nav>
-
-        {/* Settings and logout */}
-        <div className="sidebar-footer">
-          <button
-            className="nav-item"
-            onClick={() => handleNavigation("/instructor/settings")}
-          >
-            <Settings size={20} />
-            Settings
-          </button>
-
-          <button
-            className="nav-item logout"
-            onClick={handleLogout}
-          >
-            <LogOut size={20} />
-            Log Out
-          </button>
-        </div>
-      </aside>
+      {/* Reusable instructor navigation sidebar */}
+      <InstructorSidebar />
 
       {/* Main dashboard content */}
       <main className="main-content">
@@ -267,7 +178,9 @@ function InstructorDashboard() {
 
               <button
                 className="text-button"
-                onClick={() => handleNavigation("/instructor/courses")}
+                onClick={() =>
+                  handleNavigation("/instructor/courses")
+                }
               >
                 View All
               </button>
@@ -285,18 +198,24 @@ function InstructorDashboard() {
                   />
 
                   <div className="course-content">
-                    <span className="course-code">{course.code}</span>
+                    <span className="course-code">
+                      {course.code}
+                    </span>
 
                     <h3>{course.title}</h3>
 
                     <div className="course-details">
                       <span>{course.students} students</span>
-                      <span>{course.assignments} assignments</span>
+                      <span>
+                        {course.assignments} assignments
+                      </span>
                     </div>
 
                     <button
                       className="manage-button"
-                      onClick={() => handleManageCourse(course)}
+                      onClick={() =>
+                        handleManageCourse(course)
+                      }
                     >
                       Manage Course
                     </button>

@@ -1,0 +1,123 @@
+/* Main instructor sidebar */
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  width: 245px;
+  height: 100vh;
+  flex-shrink: 0;
+  flex-direction: column;
+  padding: 28px 18px;
+  background: #111827;
+  color: white;
+}
+
+/* LMS logo section */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 10px 36px;
+}
+
+.logo-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.logo-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.logo-text strong {
+  color: white;
+  font-size: 17px;
+}
+
+.logo-text span {
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+/* Sidebar navigation */
+.navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* Navigation links and buttons */
+.nav-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 13px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #aeb8c8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.nav-item:hover {
+  background: #1f2937;
+  color: white;
+}
+
+/* Highlights the current page */
+.nav-item.active {
+  background: #2563eb;
+  color: white;
+}
+
+/* Settings and logout section */
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid #273244;
+}
+
+.nav-item.logout {
+  color: #fca5a5;
+}
+
+.nav-item.logout:hover {
+  background: #3f1d24;
+  color: #fecaca;
+}
+
+/* Tablet and mobile sidebar */
+@media (max-width: 800px) {
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+  }
+
+  .sidebar-footer {
+    margin-top: 20px;
+  }
+}
