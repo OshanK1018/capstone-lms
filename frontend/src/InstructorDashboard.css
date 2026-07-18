@@ -58,13 +58,6 @@
   color: white;
 }
 
-/* Keeps icons/text inside nav items aligned consistently. */
-/* .nav-item span {
-  width: 20px;
-  font-size: 18px;
-  text-align: center;
-} */
-
 /* Pushes the settings and logout buttons to the bottom of the sidebar. */
 .sidebar-footer {
   margin-top: auto;
@@ -279,7 +272,7 @@
   font-size: 13px;
 }
 
-/* Simple link-style button, used for actions like View All. */
+/* Simple link-style button, used for View All. */
 .text-button {
   border: 0;
   background: transparent;

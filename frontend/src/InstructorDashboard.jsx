@@ -48,19 +48,19 @@ const upcomingTasks = [
   {
     id: 1,
     title: "Grade Assignment 2",
-    course: "CPS 510",
+    course: "CSCI 510",
     dueDate: "July 5",
   },
   {
     id: 2,
     title: "Publish Week 6 Quiz",
-    course: "CPS 633",
+    course: "CSCI 633",
     dueDate: "July 7",
   },
   {
     id: 3,
     title: "Review Project Submissions",
-    course: "CPS 721",
+    course: "CSCI 721",
     dueDate: "July 10",
   },
 ];
@@ -214,7 +214,7 @@ function InstructorDashboard() {
 
             <div>
               <span>Total Students</span>
-              <strong>84</strong>
+              <strong>85</strong>
             </div>
           </article>
 
