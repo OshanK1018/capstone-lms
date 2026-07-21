@@ -179,6 +179,67 @@ app.post('/api/auth/logout',
     }
 );
 
+app.get('/api/courses/instructor/:instructorID',
+    authenticateToken,
+    async (req, res) => {
+        const instructorID = req.params.instructorID;
+
+        if (!instructorID || isNaN(instructorID)) {
+            return res.status(400).json({ error: "No valid instructor ID given" });
+        }
+
+        try {
+            const [isValidInstructor] = await connectionPool.query(
+                'SELECT user_id, role FROM Users WHERE user_id = ?',
+                [instructorID]
+            );
+            if (isValidInstructor.length === 0) {
+                return res.status(404).json({ error: "User not found" });
+            }
+            if (isValidInstructor[0].role !== 'instructor') {
+                return res.status(400).json({ error: `User with ID ${instructorID} is not an instructor`});
+            }
+
+            const [courses] = await connectionPool.query(
+                `
+                 SELECT Courses.*, 
+                 COUNT(Enrollments.student_id) AS student_count
+                 FROM Courses 
+                 LEFT JOIN Enrollments ON Courses.course_id = Enrollments.course_id
+                 WHERE Courses.instructor_id = ?
+                 GROUP BY Courses.course_id
+                `,
+                [instructorID]
+            );
+
+             const [allStudentsUnderInstructor] = await connectionPool.query(
+                `
+                 SELECT COUNT(DISTINCT Enrollments.student_id) AS total_students
+                 FROM Courses JOIN Enrollments ON Courses.course_id = Enrollments.course_id
+                 WHERE Courses.instructor_id = ?
+                `,
+                [instructorID]
+            ); 
+
+            const totalStudents = allStudentsUnderInstructor[0]?.total_students || 0;
+            
+            return res.status(200).json(
+                {
+                    success: true,
+                    course_count: courses.length,
+                    total_distinct_students: totalStudents,
+                    courses: courses
+                }
+            );
+        }
+        catch (error) {
+            console.error(`Could not fetch courses for instructor with ID ${instructorID}`, error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+)
+
+
 app.listen(port,
     () => {
         console.log(`Backend server running at http://localhost:${port}`);
