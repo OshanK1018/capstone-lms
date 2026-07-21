@@ -34,7 +34,7 @@ const authenticateToken = (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-        return res.json({ error: "Invalid token given" });
+        return res.status(401).json({ error: "Invalid token given" });
     }
 
     jwt.verify(
@@ -42,7 +42,7 @@ const authenticateToken = (req, res, next) => {
         JWT_SECRET, 
         (err, decoded) => {
             if (err) {
-                return res.json({ error: "Invalid or expired token" });
+                return res.status(403).json({ error: "Invalid or expired token" });
             }
             req.user = decoded;
             next();
@@ -78,7 +78,7 @@ app.post('/api/Users',
         }
 
         try { // has to be hashed--will add later
-            const hashedPassword = await bcrypt.hash(bcrypt, rehashings);
+            const hashedPassword = await bcrypt.hash(password, rehashings);
 
             const [successfulInsertion] = await connectionPool.query(
                 'INSERT INTO Users (name, email, password, role) VALUES (?, ?, ?, ?)',
@@ -121,7 +121,7 @@ app.post('/api/auth/login',
 
             const thisUser = isExistingUser[0];
 
-            if (!(await bcrypt.compared(password, thisUser.password))) {
+            if (!(await bcrypt.compare(password, thisUser.password))) {
                 return res.status(401).json({ error: "Invalid credentials given" });
             }
 
@@ -161,7 +161,7 @@ app.get('/api/auth/me',
                 );
 
                 if (users.length === 0) {
-                    res.status(404).json({ error: "User not found" });
+                    return res.status(404).json({ error: "User not found" });
                 }
 
                 res.json({ users: users[0] })
