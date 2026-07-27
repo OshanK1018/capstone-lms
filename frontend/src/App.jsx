@@ -1,5 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+
+// Student page imports
+import Login from "./pages/student/Login";
+import StudentDashboard from "./pages/student/StudentDashboard";
+import CourseEnrollment from "./pages/student/CourseEnrollment";
+import CourseDetail from "./pages/student/CourseDetail";
+import StudentLayout from "./layouts/StudentLayout";
+
+
 // Instructor page imports
 import InstructorDashboard from "./InstructorDashboard";
 import InstructorCourses from "./InstructorCourses";
@@ -12,6 +21,16 @@ import InstructorSettings from "./InstructorSettings";
 function App() {
   return (
     <Routes>
+      {/* Login route */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Student routes */}
+      <Route path="/student" element={<StudentLayout />}>
+        <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="enroll" element={<CourseEnrollment />} />
+        <Route path="course/:courseId" element={<CourseDetail />} />
+      </Route>
+      
       {/* Instructor portal routes */}
       <Route
         path="/instructor/dashboard"
