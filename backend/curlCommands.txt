@@ -1,0 +1,12 @@
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "dchen@hunter.cuny.edu", "password": "pass456"}'
+
+curl -X GET http://localhost:3000/api/courses/instructor/2 \
+  -H "Authorization: Bearer " | jq
+
+curl -X POST http://localhost:3000/api/Courses \
+  -H "Content-Type: application/json" \
+  -d '{"title":"CS102 - Intro to CS","term":"Fall 2026","instructorID":"2"}'
+
+curl -X GET http://localhost:3000/api/courses/students/2

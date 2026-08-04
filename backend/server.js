@@ -218,7 +218,7 @@ app.post('/api/auth/logout',
 );
 
 
-// get course for instructor and number of students n shi
+// get course for instructor and number of students
 app.get('/api/courses/instructor/:instructorID',
     authenticateToken,
     async (req, res) => {
@@ -243,10 +243,16 @@ app.get('/api/courses/instructor/:instructorID',
 
             const [courses] = await connectionPool.query(
                 `
-                 SELECT Courses.*, 
-                 COUNT(Enrollments.student_id) AS student_count
-                 FROM Courses 
-                 LEFT JOIN Enrollments ON Courses.course_id = Enrollments.course_id
+                 SELECT Courses.*,
+                 COUNT(DISTINCT Enrollments.student_id) AS student_count,
+                 COUNT(DISTINCT Assignments.assignment_id) AS total_assignments,
+                 COUNT(DISTINCT Quizzes.quiz_id) AS total_quizzes,     
+                 COUNT(DISTINCT Announcements.announcement_id) AS total_announcements
+                 FROM Courses
+                 LEFT JOIN Enrollments ON Courses.course_id = Enrollments.course_id 
+                 LEFT JOIN Assignments ON Courses.course_id = Assignments.course_id 
+                 LEFT JOIN Quizzes ON Courses.course_id = Quizzes.course_id 
+                 LEFT JOIN Announcements ON Courses.course_id = Announcements.course_id 
                  WHERE Courses.instructor_id = ?
                  GROUP BY Courses.course_id
                 `,
@@ -268,7 +274,7 @@ app.get('/api/courses/instructor/:instructorID',
                 {
                     success: true,
                     course_count: courses.length,
-                    total_distinct_students: totalStudents,
+                    total_students: totalStudents,
                     courses: courses
                 }
             );
@@ -298,7 +304,7 @@ app.post('/api/Courses',
         if (isExistingInstructor.length === 0) {
             return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
         }
-        if (isExistingInstructor[0].role != 'instructor' || isExistingInstructor[0].role != 'admin') {
+        if (isExistingInstructor[0].role != 'instructor' && isExistingInstructor[0].role != 'admin') {
             return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor.`});
         }
 
@@ -322,7 +328,7 @@ app.post('/api/Courses',
                     success: true,
                     message: `Course ${title} created`,
                     course: {
-                        course_id: successfullyCreatedCourse[0].insertId,
+                        course_id: successfullyCreatedCourse.insertId,
                         title: title,
                         semester: term,
                         instructor_id: instructorID
@@ -397,6 +403,8 @@ app.get('/api/courses/students/:courseID',
     }
 );
 
+
+// enroll students
 app.post('api/enrollments/students/',
     async (req, res) => {
         let { student_id, course_id } = req.body;

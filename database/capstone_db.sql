@@ -103,7 +103,6 @@ CREATE TABLE Announcements (
 );
 
 -- Views for system integration
-
 -- View for the instructor dashboard statistcs
 CREATE VIEW Instructor_Dashboard_Stats AS
 SELECT 
@@ -192,18 +191,14 @@ INSERT INTO Quizzes (course_id, title, due_date) VALUES
 (4, 'System Elimination Review', 'July 15, 2026'),
 (5, 'Grammatical Cases Exam', 'July 22, 2026');
 
--- Insert data into Grades
-INSERT INTO Grades (student_id, course_id, letter_grade) VALUES 
-(4, 1, 'A'),
-(5, 3, 'A'),
-(7, 3, 'A');
+INSERT INTO Grades (student_id, course_id, letter_grade)
+VALUES (3, 1, 'A');
 
--- Insert Data for Submissions
-INSERT INTO Submissions (assignment_id, student_id, submission_date, file_link, score, feedback) VALUES 
-(1, 4, 'July 11, 2026', 'hw1.pdf', 48, 'Good work'),
-(3, 5, 'July 14, 2026', 'progress_report_2.pdf', 95, 'Great database schemas'),
-(3, 7, 'July 14, 2026', 'ui_screenshots.pdf', 98, 'UI looks excellent'),
-(4, 5, 'July 17, 2026', 'youth_survey_eval.pdf', 100, 'Perfect regression line calculation');
+
+-- Insert Data for submission, quiz_questions, quiz_attempts
+
+INSERT INTO Submissions (assignment_id, student_id, submission_date, file_link)
+VALUES (1, 3, 'July 11, 2026', 'hw1.pdf');
 
 -- Insert Data for Quiz Questions
 INSERT INTO Quiz_Questions (quiz_id, question_text, correct_answer) VALUES 
