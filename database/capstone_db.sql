@@ -147,44 +147,72 @@ LEFT JOIN Quiz_Attempts qa ON e.student_id = qa.student_id
 GROUP BY e.student_id, e.course_id;
 
 
--- Insert data into users and courses
+-- Insert data into Users
 INSERT INTO Users (name, email, password, role) VALUES 
-('Jennifer Adams', 'jadams@hunter.cunny.edu', 'pass123', 'instructor'),
+('Jennifer Adams', 'jadams@hunter.cuny.edu', 'pass123', 'instructor'),
 ('David Chen', 'dchen@hunter.cuny.edu', 'pass456', 'instructor'),
-('John Doe', 'jdoe@hunter.cuny.edu', 'pass789', 'student');
+('Alan Turing', 'aturing@hunter.cuny.edu', 'pass789', 'instructor'),
+('John Doe', 'jdoe@hunter.cuny.edu', 'pass111', 'student'),
+('Sameer Auluck', 'sauluck@hunter.cuny.edu', 'pass222', 'student'),
+('Jai Auluck', 'jauluck@hunter.cuny.edu', 'pass333', 'student'),
+('Olivia Ko', 'oko@hunter.cuny.edu', 'pass444', 'student');
 
+-- Insert data into Courses
 INSERT INTO Courses (title, semester, instructor_id) VALUES 
 ('MATH101 - Algebra I', 'Summer 2026', 2),
-('PHYS101 -  Physics I', 'Summer 2026', 2);
+('PHYS101 - Physics I', 'Summer 2026', 2),
+('CSCI49900 - Capstone Project', 'Summer 2026', 1),
+('STAT31100 - Probability & Statistics', 'Summer 2026', 3),
+('SPAN101 - Beginner Spanish', 'Summer 2026', 1);
 
-
--- Insert data into enrollements, assignments, announcements, quizzes
-
+-- Insert data into Enrollments
 INSERT INTO Enrollments (student_id, course_id) VALUES 
-(3, 1), 
-(3, 2);
+(4, 1), (4, 2), 
+(5, 3), (5, 4), (5, 5), 
+(6, 1), (6, 4), 
+(7, 3), (7, 4); 
 
+-- Insert data into Assignments
 INSERT INTO Assignments (course_id, title, due_date, max_points) VALUES 
 (1, 'HW #2', 'July 12, 2026', 50),
-(2, 'Lab Report #1', 'June 24, 2026', 50);
+(2, 'Lab Report #1', 'June 24, 2026', 50),
+(3, 'Progress Report 2', 'July 15, 2026', 100),
+(4, 'Youth Survey Data Eval', 'July 18, 2026', 100),
+(5, 'Translation Drill', 'July 20, 2026', 25);
 
-INSERT INTO Announcements (course_id, title, message, date_posted)
-VALUES (1, 'Welcome to Class!', 'Please read the syllabus before our first meeting.', 'June 1, 2026');
+-- Insert data into Announcements
+INSERT INTO Announcements (course_id, title, message, date_posted) VALUES 
+(1, 'Welcome to Class!', 'Please read the syllabus before our first meeting.', 'June 1, 2026'),
+(3, 'Capstone Teams', 'Please finalize your project groups by Friday.', 'June 5, 2026'),
+(4, 'Regression Data', 'The dataset has been uploaded for the evaluation project.', 'July 10, 2026');
 
-INSERT INTO Quizzes (course_id, title, due_date)
-VALUES (1, 'Week 1 Quiz', 'June 25, 2026');
+-- Insert data into Quizzes
+INSERT INTO Quizzes (course_id, title, due_date) VALUES 
+(1, 'Week 1 Quiz', 'June 25, 2026'),
+(4, 'System Elimination Review', 'July 15, 2026'),
+(5, 'Grammatical Cases Exam', 'July 22, 2026');
 
-INSERT INTO Grades (student_id, course_id, letter_grade)
-VALUES (3, 1, 'A');
+-- Insert data into Grades
+INSERT INTO Grades (student_id, course_id, letter_grade) VALUES 
+(4, 1, 'A'),
+(5, 3, 'A'),
+(7, 3, 'A');
 
+-- Insert Data for Submissions
+INSERT INTO Submissions (assignment_id, student_id, submission_date, file_link, score, feedback) VALUES 
+(1, 4, 'July 11, 2026', 'hw1.pdf', 48, 'Good work'),
+(3, 5, 'July 14, 2026', 'progress_report_2.pdf', 95, 'Great database schemas'),
+(3, 7, 'July 14, 2026', 'ui_screenshots.pdf', 98, 'UI looks excellent'),
+(4, 5, 'July 17, 2026', 'youth_survey_eval.pdf', 100, 'Perfect regression line calculation');
 
--- Insert Data for submission, quiz_questions, quiz_attempts
+-- Insert Data for Quiz Questions
+INSERT INTO Quiz_Questions (quiz_id, question_text, correct_answer) VALUES 
+(1, 'What is 2+2?', '4'),
+(2, 'What is the second equation in the linear system?', '2x-y+z'),
+(2, 'What is the calculation result for the regression line?', '1775.7');
 
-INSERT INTO Submissions (assignment_id, student_id, submission_date, file_link)
-VALUES (1, 3, 'July 11, 2026', 'hw1.pdf');
-
-INSERT INTO Quiz_Questions (quiz_id, question_text, correct_answer)
-VALUES (1, 'What is 2+2?', '4');
-
-INSERT INTO Quiz_Attempts (quiz_id, student_id, score, attempt_date)
-VALUES (1, 3, 100, 'June 24, 2026');
+-- Insert Data for Quiz Attempts
+INSERT INTO Quiz_Attempts (quiz_id, student_id, score, attempt_date) VALUES 
+(1, 4, 100, 'June 24, 2026'),
+(2, 5, 100, 'July 14, 2026'),
+(2, 6, 85, 'July 14, 2026');
