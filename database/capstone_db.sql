@@ -100,6 +100,32 @@ CREATE TABLE Announcements (
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
+-- 11. Views for System Integration (Syncing with Instructor UI)
+
+-- View for Instructor Dashboard Statistics
+CREATE VIEW Instructor_Dashboard_Stats AS
+SELECT 
+    c.instructor_id,
+    COUNT(DISTINCT c.course_id) AS active_courses,
+    COUNT(DISTINCT e.student_id) AS total_students,
+    COUNT(DISTINCT a.assignment_id) AS total_assignments
+FROM Courses c
+LEFT JOIN Enrollments e ON c.course_id = e.course_id
+LEFT JOIN Assignments a ON c.course_id = a.course_id
+GROUP BY c.instructor_id;
+
+-- View for Instructor Gradebook
+CREATE VIEW Student_Gradebook_Summary AS
+SELECT 
+    u.user_id AS student_id,
+    u.name AS student_name,
+    c.course_id,
+    c.title AS course_title,
+    g.letter_grade,
+    c.instructor_id
+FROM Grades g
+JOIN Users u ON g.student_id = u.user_id
+JOIN Courses c ON g.course_id = c.course_id;
 
 
 -- Insert data into users and courses
