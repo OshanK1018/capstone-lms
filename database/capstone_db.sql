@@ -102,9 +102,9 @@ CREATE TABLE Announcements (
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
--- Views for System Integration (Syncing with Instructor UI)
+-- Views for system integration
 
--- View for Instructor Dashboard Statistics
+-- View for the instructor dashboard statistcs
 CREATE VIEW Instructor_Dashboard_Stats AS
 SELECT 
     c.instructor_id,
@@ -116,7 +116,7 @@ LEFT JOIN Enrollments e ON c.course_id = e.course_id
 LEFT JOIN Assignments a ON c.course_id = a.course_id
 GROUP BY c.instructor_id;
 
--- View for Instructor Gradebook
+-- View for the instructor gradebook
 CREATE VIEW Student_Gradebook_Summary AS
 SELECT 
     u.user_id AS student_id,
@@ -128,6 +128,23 @@ SELECT
 FROM Grades g
 JOIN Users u ON g.student_id = u.user_id
 JOIN Courses c ON g.course_id = c.course_id;
+
+-- View to automate the student grade calculations
+CREATE VIEW Automated_Grade_Calculations AS
+SELECT 
+    e.student_id,
+    e.course_id,
+    COUNT(s.submission_id) AS total_assignments_submitted,
+    AVG(s.score) AS average_assignment_score,
+    COUNT(qa.attempt_id) AS total_quizzes_taken,
+    AVG(qa.score) AS average_quiz_score,
+    (IFNULL(AVG(s.score), 0) + IFNULL(AVG(qa.score), 0)) / 2 AS estimated_overall_grade
+FROM Enrollments e
+LEFT JOIN Submissions s ON e.student_id = s.student_id 
+    AND e.course_id = (SELECT course_id FROM Assignments WHERE assignment_id = s.assignment_id)
+LEFT JOIN Quiz_Attempts qa ON e.student_id = qa.student_id 
+    AND e.course_id = (SELECT course_id FROM Quizzes WHERE quiz_id = qa.quiz_id)
+GROUP BY e.student_id, e.course_id;
 
 
 -- Insert data into users and courses
