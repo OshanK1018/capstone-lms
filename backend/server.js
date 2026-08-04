@@ -77,7 +77,7 @@ app.post('/api/Users',
             return res.status(409).json({ error: "Email already exists." });
         }
 
-        try { // has to be hashed--will add later
+        try { 
             const hashedPassword = await bcrypt.hash(password, rehashings);
 
             const [successfulInsertion] = await connectionPool.query(
@@ -101,6 +101,44 @@ app.post('/api/Users',
     }
 );
 
+// get user information
+app.get('/api/Users/:userID',
+    async (req, res) => {
+        const userID = req.params.userID;
+        const userIDasNum = Number(userID);
+        
+        if (!Number.isInteger(userIDasNum) || isNaN(userID)) {
+            return res.status(400).json({ error: "No valid User ID given" });
+        }
+
+        try {
+            const [user] = await connectionPool.query(
+                'SELECT user_id, name, email, role FROM Users WHERE user_id = ?',
+                [userIDasNum]
+            );
+            if (user.length === 0) {
+                return res.status(404).json({ error: `User with ID ${userIDasNum} not found`});
+            }
+
+            return res.status(200).json(
+                {
+                    success: true,
+                    id: user[0].user_id,
+                    name: user[0].name,
+                    email: user[0].email,
+                    role: user[0].role
+                }
+            );
+        }
+        catch (error) {
+            console.error(`Could not fetch User with ID ${userIDasNum}`, error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+);
+
+
+// authenticate login
 app.post('/api/auth/login',
     async (req, res) => {
         let { email, password } = req.body;
@@ -179,19 +217,22 @@ app.post('/api/auth/logout',
     }
 );
 
+
+// get course for instructor and number of students n shi
 app.get('/api/courses/instructor/:instructorID',
     authenticateToken,
     async (req, res) => {
         const instructorID = req.params.instructorID;
+        const instructorIDasNum = Number(instructorID);
 
-        if (!instructorID || isNaN(instructorID)) {
+        if (!Number.isInteger(instructorIDasNum) || instructorIDasNum <= 0) {
             return res.status(400).json({ error: "No valid instructor ID given" });
         }
 
         try {
             const [isValidInstructor] = await connectionPool.query(
                 'SELECT user_id, role FROM Users WHERE user_id = ?',
-                [instructorID]
+                [instructorIDasNum]
             );
             if (isValidInstructor.length === 0) {
                 return res.status(404).json({ error: "User not found" });
@@ -209,7 +250,7 @@ app.get('/api/courses/instructor/:instructorID',
                  WHERE Courses.instructor_id = ?
                  GROUP BY Courses.course_id
                 `,
-                [instructorID]
+                [instructorIDasNum]
             );
 
              const [allStudentsUnderInstructor] = await connectionPool.query(
@@ -218,7 +259,7 @@ app.get('/api/courses/instructor/:instructorID',
                  FROM Courses JOIN Enrollments ON Courses.course_id = Enrollments.course_id
                  WHERE Courses.instructor_id = ?
                 `,
-                [instructorID]
+                [instructorIDasNum]
             ); 
 
             const totalStudents = allStudentsUnderInstructor[0]?.total_students || 0;
@@ -237,8 +278,131 @@ app.get('/api/courses/instructor/:instructorID',
             res.status(500).json({ error: "Internal server error" });
         }
     }
-)
+);
 
+app.post('/api/Courses', 
+    async (req, res) => {
+        let { title, term, instructorID } = req.body;
+        title = title?.trim();
+        term = term?.trim();
+        instructorID = instructorID?.trim();
+
+        if (!title) return res.status(400).json("No course name given.");
+        if (!term) return res.status(400).json("No course term given.");
+        if (!instructorID || isNaN(instructorID)) return res.status(400).json({ error: "No valid instructor ID given." });
+
+        const [isExistingInstructor] = await connectionPool.query(
+            `SELECT user_id, role FROM Users WHERE user_id = ?`,
+            [instructorID]
+        );
+        if (isExistingInstructor.length === 0) {
+            return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
+        }
+        if (isExistingInstructor[0].role != 'instructor' || isExistingInstructor[0].role != 'admin') {
+            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor.`});
+        }
+
+        const [alreadyExistingCourse] = await connectionPool.query(
+            `SELECT title, semester, instructor_id FROM Courses 
+             WHERE title = ? AND semester = ? AND instructor_id = ?`,
+            [title, term, instructorID] 
+        ); 
+
+        if (alreadyExistingCourse.length > 0) {
+            return res.status(409).json({error: "Course already exists" });
+        }
+
+        try {
+            const [successfullyCreatedCourse] = await connectionPool.query(
+                `INSERT INTO Courses (title, semester, instructor_id) VALUES (?, ?, ?)`,
+                [title, term, instructorID]
+            );
+            return res.status(201).json(
+                {
+                    success: true,
+                    message: `Course ${title} created`,
+                    course: {
+                        course_id: successfullyCreatedCourse[0].insertId,
+                        title: title,
+                        semester: term,
+                        instructor_id: instructorID
+                    }
+                }
+            );
+        }  
+        catch (error) {
+            console.error("Database error:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+);
+
+app.get('/api/courses/students/:courseID',
+    async (req, res) => {
+        const courseID = req.params.courseID;
+        const courseIDasNum = Number(courseID);
+        
+        if (!Number.isInteger(courseIDasNum) || courseIDasNum <= 0) {
+            return res.status(400).json({ error: "No valid course ID given" });
+        }
+
+        try {
+            const [isExistingCourse] = await connectionPool.query(
+                `SELECT course_id FROM Courses WHERE course_id = ?`,
+                [courseIDasNum]
+            );
+            if (isExistingCourse.length == 0) {
+                return res.status(404).json({ error: `Course with ID ${courseIDasNum} not found`});
+            }
+
+            const [studentsInCourse] = await connectionPool.query(
+                `SELECT Enrollments.student_id, Users.name, Users.email
+                 FROM Enrollments INNER JOIN Users ON Enrollments.student_id = Users.user_id 
+                 WHERE Enrollments.course_id = ?`,
+                [courseIDasNum]
+            );
+
+            if (studentsInCourse.length == 0) {
+                return res.status(201).json(
+                    {
+                        success: true,
+                        message: `Course ${courseIDasNum} found, but no students have enrolled yet`
+                    }
+                );
+            }
+
+            const formattedStudents = studentsInCourse.map(
+                student => (
+                    {
+                        id: student.student_id,
+                        name: student.name,
+                        email: student.email
+                    }
+                )
+            );
+
+            return res.status(201).json(
+                {
+                    success: true,
+                    message: `Course ${courseIDasNum} found, here is the list of students:`,
+                    student_list: formattedStudents
+                }
+            );
+
+        }
+        catch(error) {
+            console.error(`Could not fetch students for course ${courseIDasNum}`, error);
+            res.status(500).json({ error: "Database error" });
+        }
+    }
+);
+
+app.post('api/enrollments/students/',
+    async (req, res) => {
+        let { student_id, course_id } = req.body;
+        
+    }
+);
 
 app.listen(port,
     () => {

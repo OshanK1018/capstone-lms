@@ -3,7 +3,7 @@ import { getToken } from "./userServices";
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
 const API_URL = process.env.API_URL || "http://localhost:3000/api"
 
-export async function getCoursesForInstructor(instructorID) {
+export async function getCoursesWithInstructor(instructorID) {
     if (!instructorID || isNaN(instructorID)) {
         console.error("Invalid instructor ID provided");
         return {
@@ -38,7 +38,7 @@ export async function getCoursesForInstructor(instructorID) {
         };
     }
     catch (error) {
-        console.error("getCoursesForInstructor error: ", error.message);
+        console.error("getCoursesWithInstructor error: ", error.message);
         return null;
     }
 }
