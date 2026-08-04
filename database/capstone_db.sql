@@ -47,6 +47,8 @@ CREATE TABLE Submissions (
     student_id INT,
     submission_date VARCHAR(50),
     file_link VARCHAR(100),
+    score INT,
+    feedback VARCHAR(255),
     FOREIGN KEY (assignment_id) REFERENCES Assignments(assignment_id),
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
@@ -100,7 +102,7 @@ CREATE TABLE Announcements (
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
--- 11. Views for System Integration (Syncing with Instructor UI)
+-- Views for System Integration (Syncing with Instructor UI)
 
 -- View for Instructor Dashboard Statistics
 CREATE VIEW Instructor_Dashboard_Stats AS
