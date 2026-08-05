@@ -1,0 +1,43 @@
+.material-row {
+    margin: 0 30px;
+    padding: 18px 0;
+    border-top: 1px solid #edf2f7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.material-row:first-of-type {
+    border-top: 0;
+}
+
+.material-row h2 {
+    margin: 0;
+    color: #172033;
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.material-row p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.material-row__button {
+    width: 90px;
+    height: 38px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.material-row__button:hover {
+    background: #eef3fb;
+    color: #418dff;
+}
