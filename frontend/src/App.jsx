@@ -1,5 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-
+import {
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
 
 // Student page imports
 import Login from "./pages/student/Login";
@@ -13,10 +16,10 @@ import StudentAssignments from "./pages/student/StudentAssignments";
 import StudentQuizzes from "./pages/student/StudentQuizzes";
 import StudentGrades from "./pages/student/StudentGrades";
 
-
 // Instructor page imports
 import InstructorDashboard from "./InstructorDashboard";
 import InstructorCourses from "./InstructorCourses";
+import InstructorManageCourse from "./InstructorManageCourse";
 import InstructorAssignments from "./InstructorAssignments";
 import InstructorQuizzes from "./InstructorQuizzes";
 import InstructorGradebook from "./InstructorGradebook";
@@ -30,19 +33,52 @@ function App() {
       <Route path="/login" element={<Login />} />
 
       {/* Student routes */}
-      <Route path="/student" element={<StudentLayout />}>
-        <Route path="dashboard" element={<StudentDashboard />} />
-        <Route path="enroll" element={<CourseEnrollment />} />
-        <Route path="course/:courseId" element={<CourseLayout />}>
-          <Route index element={<CourseDetail />} />
-          <Route path="materials" element={<StudentMaterials />} />
-          <Route path="assignments" element={<StudentAssignments />} />
-          <Route path="quizzes" element={<StudentQuizzes />} />
-          <Route path="grades" element={<StudentGrades />} />
+      <Route
+        path="/student"
+        element={<StudentLayout />}
+      >
+        <Route
+          path="dashboard"
+          element={<StudentDashboard />}
+        />
+
+        <Route
+          path="enroll"
+          element={<CourseEnrollment />}
+        />
+
+        <Route
+          path="course/:courseId"
+          element={<CourseLayout />}
+        >
+          <Route
+            index
+            element={<CourseDetail />}
+          />
+
+          <Route
+            path="materials"
+            element={<StudentMaterials />}
+          />
+
+          <Route
+            path="assignments"
+            element={<StudentAssignments />}
+          />
+
+          <Route
+            path="quizzes"
+            element={<StudentQuizzes />}
+          />
+
+          <Route
+            path="grades"
+            element={<StudentGrades />}
+          />
         </Route>
       </Route>
-      
-      {/* Instructor portal routes */}
+
+      {/* Instructor routes */}
       <Route
         path="/instructor/dashboard"
         element={<InstructorDashboard />}
@@ -51,6 +87,11 @@ function App() {
       <Route
         path="/instructor/courses"
         element={<InstructorCourses />}
+      />
+
+      <Route
+        path="/instructor/courses/:courseId"
+        element={<InstructorManageCourse />}
       />
 
       <Route
@@ -78,16 +119,26 @@ function App() {
         element={<InstructorSettings />}
       />
 
-      {/* Redirects the base URL to the instructor dashboard */}
+      {/* Base URL goes to login */}
       <Route
         path="/"
-        element={<Navigate to="/instructor/dashboard" replace />}
+        element={
+          <Navigate
+            to="/login"
+            replace
+          />
+        }
       />
 
-      {/* Redirects unknown URLs to the instructor dashboard */}
+      {/* Unknown URLs go to login */}
       <Route
         path="*"
-        element={<Navigate to="/instructor/dashboard" replace />}
+        element={
+          <Navigate
+            to="/login"
+            replace
+          />
+        }
       />
     </Routes>
   );

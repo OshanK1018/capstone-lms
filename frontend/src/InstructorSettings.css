@@ -328,3 +328,265 @@
     width: 100%;
   }
 }
+
+/* Textarea used by instructor bio */
+.settings-form-group textarea {
+  width: 100%;
+  padding: 11px 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+
+  background: white;
+  color: #172033;
+
+  font: inherit;
+
+  resize: vertical;
+}
+
+
+.settings-form-group textarea:focus {
+  border-color: #2563eb;
+
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 10%);
+}
+
+
+/* Account information panel */
+.settings-account-panel {
+  grid-column: 1 / -1;
+}
+
+
+.settings-section-icon.account {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+
+.settings-account-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 14px;
+
+  margin-top: 20px;
+}
+
+
+.settings-account-item {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  padding: 16px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+
+  background: #f8fafc;
+}
+
+
+.settings-account-item span {
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.settings-account-item strong {
+  color: #172033;
+
+  font-size: 14px;
+}
+
+
+.settings-active-status {
+  width: fit-content;
+
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  background: #d1fae5;
+  color: #047857 !important;
+
+  font-size: 11px !important;
+}
+
+
+/* Password input with show/hide button */
+.settings-password-input {
+  display: flex;
+  align-items: center;
+
+  padding: 0 10px 0 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: white;
+  color: #64748b;
+}
+
+
+.settings-password-input:focus-within {
+  border-color: #2563eb;
+
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 10%);
+}
+
+
+.settings-password-input input {
+  width: 100%;
+
+  padding: 11px 10px;
+
+  border: 0;
+  outline: none;
+
+  background: transparent;
+
+  box-shadow: none;
+}
+
+
+.settings-password-input input:focus {
+  border: 0;
+
+  box-shadow: none;
+}
+
+
+.settings-password-input button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 34px;
+  height: 34px;
+
+  flex-shrink: 0;
+
+  border: 0;
+  border-radius: 6px;
+
+  background: transparent;
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+
+.settings-password-input button:hover {
+  background: #f1f5f9;
+
+  color: #2563eb;
+}
+
+
+/* Password requirements */
+.password-requirement-list {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+
+  margin-bottom: 18px;
+}
+
+
+.password-requirement {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 10px 12px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+
+  background: #f8fafc;
+  color: #94a3b8;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+
+.password-requirement.valid {
+  border-color: #a7f3d0;
+
+  background: #ecfdf5;
+  color: #047857;
+}
+
+
+/* Inline success message */
+.settings-save-message {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 15px;
+
+  padding: 11px 13px;
+
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+
+  background: #ecfdf5;
+  color: #047857;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* Inline error message */
+.settings-error-message {
+  margin-top: 15px;
+
+  padding: 11px 13px;
+
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* Tablet */
+@media (max-width: 1000px) {
+  .settings-account-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+
+  .password-requirement-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Mobile */
+@media (max-width: 700px) {
+  .settings-account-grid {
+    grid-template-columns: 1fr;
+  }
+}
