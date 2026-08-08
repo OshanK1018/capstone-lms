@@ -267,3 +267,1048 @@
     width: 100%;
   }
 }
+
+/* Main instructor page layout */
+.instructor-page-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+
+/* Create Course modal background */
+.course-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+}
+
+
+/* Create Course modal */
+.course-modal {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+
+  padding: 28px;
+
+  border-radius: 14px;
+
+  background: white;
+
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+}
+
+
+/* Modal header */
+.course-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+
+.course-modal-header h2 {
+  margin: 4px 0 0;
+
+  color: #172033;
+}
+
+
+.course-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #f1f5f9;
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+
+.course-modal-close:hover {
+  background: #e2e8f0;
+  color: #172033;
+}
+
+
+/* Create Course form */
+.create-course-form {
+  margin-top: 24px;
+}
+
+
+.course-form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 18px;
+}
+
+
+.course-form-group {
+  margin-bottom: 20px;
+}
+
+
+.course-form-group label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #334155;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.course-form-group input,
+.course-form-group select,
+.course-form-group textarea {
+  width: 100%;
+
+  padding: 12px 13px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: white;
+  color: #172033;
+
+  font: inherit;
+}
+
+
+.course-form-group input:focus,
+.course-form-group select:focus,
+.course-form-group textarea:focus {
+  outline: none;
+
+  border-color: #2563eb;
+}
+
+
+.course-form-group textarea {
+  resize: vertical;
+}
+
+
+/* Grading setup section */
+.grading-section {
+  margin-top: 8px;
+
+  padding: 20px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #f8fafc;
+}
+
+
+.grading-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 18px;
+
+  margin-bottom: 20px;
+}
+
+
+.grading-section-header h3 {
+  margin: 0 0 5px;
+
+  color: #172033;
+}
+
+
+.grading-section-header p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+.add-category-button {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 9px 12px;
+
+  border: 1px solid #2563eb;
+  border-radius: 7px;
+
+  background: white;
+  color: #2563eb;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.add-category-button:hover {
+  background: #eff6ff;
+}
+
+
+/* Grade category rows */
+.grade-category-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+
+.grade-category-row {
+  display: grid;
+
+  grid-template-columns: minmax(0, 1fr) 130px 42px;
+
+  align-items: end;
+
+  gap: 12px;
+}
+
+
+.category-name-field label,
+.category-weight-field label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+.category-name-field input,
+.category-weight-field input {
+  width: 100%;
+
+  padding: 10px 11px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+
+  background: white;
+  color: #172033;
+}
+
+
+.category-name-field input:focus,
+.category-weight-field input:focus {
+  outline: none;
+
+  border-color: #2563eb;
+}
+
+
+.weight-input-container {
+  position: relative;
+}
+
+
+.weight-input-container input {
+  padding-right: 35px;
+}
+
+
+.weight-input-container span {
+  position: absolute;
+
+  top: 50%;
+  right: 12px;
+
+  transform: translateY(-50%);
+
+  color: #64748b;
+
+  font-weight: 700;
+}
+
+
+.remove-category-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  height: 42px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: white;
+  color: #dc2626;
+
+  cursor: pointer;
+}
+
+
+.remove-category-button:hover {
+  background: #fef2f2;
+}
+
+
+.remove-category-button:disabled {
+  border-color: #e2e8f0;
+
+  color: #cbd5e1;
+
+  cursor: not-allowed;
+}
+
+
+/* Grade weight total */
+.grade-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 18px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+
+  background: #fffbeb;
+  color: #92400e;
+}
+
+
+.grade-total-complete {
+  border-color: #a7f3d0;
+
+  background: #ecfdf5;
+  color: #047857;
+}
+
+
+/* Form error */
+.course-form-error {
+  margin-top: 16px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Modal action buttons */
+.course-form-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  margin-top: 24px;
+}
+
+
+.course-cancel-button,
+.course-create-button {
+  padding: 11px 18px;
+
+  border-radius: 8px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.course-cancel-button {
+  border: 1px solid #cbd5e1;
+
+  background: white;
+  color: #334155;
+}
+
+
+.course-cancel-button:hover {
+  background: #f8fafc;
+}
+
+
+.course-create-button {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  border: 0;
+
+  background: #2563eb;
+  color: white;
+}
+
+
+.course-create-button:hover {
+  background: #1d4ed8;
+}
+
+
+/* Create Course modal on smaller screens */
+@media (max-width: 700px) {
+  .course-modal-overlay {
+    align-items: flex-start;
+
+    padding: 12px;
+  }
+
+
+  .course-modal {
+    max-height: calc(100vh - 24px);
+
+    padding: 20px;
+  }
+
+
+  .course-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .grading-section-header {
+    flex-direction: column;
+  }
+
+
+  .add-category-button {
+    width: 100%;
+
+    justify-content: center;
+  }
+
+
+  .grade-category-row {
+    grid-template-columns: 1fr 100px 42px;
+  }
+
+
+  .course-form-actions {
+    flex-direction: column-reverse;
+  }
+
+
+  .course-cancel-button,
+  .course-create-button {
+    width: 100%;
+
+    justify-content: center;
+  }
+}
+
+/* Assignment modal background */
+.assignment-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+}
+
+
+/* Assignment modal */
+.assignment-modal {
+  width: min(760px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+
+  padding: 28px;
+
+  border-radius: 14px;
+
+  background: white;
+
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+}
+
+
+.assignment-manage-modal {
+  width: min(1100px, 100%);
+}
+
+
+/* Assignment modal header */
+.assignment-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+
+.assignment-modal-header h2 {
+  margin: 4px 0 5px;
+
+  color: #172033;
+}
+
+
+.assignment-modal-header p {
+  margin: 0;
+
+  color: #64748b;
+}
+
+
+.assignment-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #f1f5f9;
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+
+.assignment-modal-close:hover {
+  background: #e2e8f0;
+  color: #172033;
+}
+
+
+/* Create and edit assignment form */
+.assignment-form {
+  margin-top: 24px;
+}
+
+
+.assignment-form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 18px;
+}
+
+
+.assignment-form-group {
+  margin-bottom: 18px;
+}
+
+
+.assignment-form-group label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #334155;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.assignment-form-group input,
+.assignment-form-group select,
+.assignment-form-group textarea {
+  width: 100%;
+
+  padding: 11px 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: white;
+  color: #172033;
+
+  font: inherit;
+}
+
+
+.assignment-form-group input:focus,
+.assignment-form-group select:focus,
+.assignment-form-group textarea:focus {
+  outline: none;
+
+  border-color: #2563eb;
+
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 8%);
+}
+
+
+.assignment-form-group textarea {
+  resize: vertical;
+}
+
+
+/* Assignment checkbox */
+.assignment-checkbox-row {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  margin: 8px 0 20px;
+
+  color: #475569;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.assignment-checkbox-row input {
+  width: 17px;
+  height: 17px;
+
+  accent-color: #2563eb;
+}
+
+
+/* Assignment form error */
+.assignment-form-error {
+  margin-bottom: 18px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Assignment modal buttons */
+.assignment-form-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  margin-top: 24px;
+}
+
+
+.assignment-cancel-button,
+.assignment-save-button {
+  padding: 11px 17px;
+
+  border-radius: 8px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.assignment-cancel-button {
+  border: 1px solid #cbd5e1;
+
+  background: white;
+  color: #334155;
+}
+
+
+.assignment-cancel-button:hover {
+  background: #f8fafc;
+}
+
+
+.assignment-save-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  border: 0;
+
+  background: #2563eb;
+  color: white;
+}
+
+
+.assignment-save-button:hover {
+  background: #1d4ed8;
+}
+
+
+/* Manage assignment two-column layout */
+.manage-assignment-layout {
+  display: grid;
+
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+  gap: 28px;
+
+  margin-top: 25px;
+}
+
+
+.manage-assignment-settings {
+  padding-right: 26px;
+
+  border-right: 1px solid #e2e8f0;
+}
+
+
+.manage-assignment-settings h3,
+.assignment-submission-panel h3 {
+  margin: 0 0 20px;
+
+  color: #172033;
+}
+
+
+/* Student submission panel */
+.assignment-submission-panel {
+  min-width: 0;
+}
+
+
+.submission-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 16px;
+}
+
+
+.submission-panel-header h3 {
+  margin: 0 0 4px;
+}
+
+
+.submission-panel-header p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+/* Submission student list */
+.submission-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+
+  margin-bottom: 20px;
+}
+
+
+.submission-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+
+  gap: 12px;
+
+  padding: 12px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+
+  background: white;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+
+.submission-list-item:hover {
+  border-color: #93c5fd;
+
+  background: #f8fafc;
+}
+
+
+.submission-list-item.active {
+  border-color: #2563eb;
+
+  background: #eff6ff;
+}
+
+
+.submission-list-item > div {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.submission-list-item strong {
+  color: #172033;
+
+  font-size: 13px;
+}
+
+
+.submission-list-item span {
+  margin-top: 3px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+/* Submission status */
+.submission-status {
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  font-size: 10px !important;
+  font-weight: 700;
+}
+
+
+.submission-status.submitted {
+  background: #dbeafe;
+  color: #1d4ed8 !important;
+}
+
+
+.submission-status.graded {
+  background: #d1fae5;
+  color: #047857 !important;
+}
+
+
+/* Individual grading card */
+.submission-grading-card {
+  padding: 18px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #f8fafc;
+}
+
+
+.submission-grading-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 18px;
+}
+
+
+.submission-grading-heading h4 {
+  margin: 0 0 5px;
+
+  color: #172033;
+}
+
+
+.submission-grading-heading p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+
+/* Temporary View Submission button */
+.view-submission-button {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 8px 10px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+
+  background: white;
+  color: #334155;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.view-submission-button:hover {
+  border-color: #2563eb;
+
+  color: #2563eb;
+}
+
+
+/* Message before a submission is selected */
+.select-submission-message {
+  display: grid;
+
+  min-height: 190px;
+
+  place-items: center;
+  align-content: center;
+
+  padding: 20px;
+
+  border: 1px dashed #cbd5e1;
+  border-radius: 9px;
+
+  color: #64748b;
+
+  text-align: center;
+}
+
+
+.select-submission-message p {
+  margin: 10px 0 0;
+
+  font-size: 13px;
+}
+
+
+/* Save confirmation */
+.assignment-save-message {
+  margin-top: 16px;
+
+  padding: 11px 13px;
+
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+
+  background: #eff6ff;
+  color: #1e40af;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Assignment modal tablet view */
+@media (max-width: 900px) {
+  .manage-assignment-layout {
+    grid-template-columns: 1fr;
+  }
+
+
+  .manage-assignment-settings {
+    padding-right: 0;
+    padding-bottom: 25px;
+
+    border-right: 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+}
+
+
+/* Assignment modal mobile view */
+@media (max-width: 700px) {
+  .assignment-modal-overlay {
+    align-items: flex-start;
+
+    padding: 12px;
+  }
+
+
+  .assignment-modal {
+    max-height: calc(100vh - 24px);
+
+    padding: 20px;
+  }
+
+
+  .assignment-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .assignment-form-actions {
+    flex-direction: column-reverse;
+  }
+
+
+  .assignment-cancel-button,
+  .assignment-save-button {
+    width: 100%;
+  }
+
+
+  .submission-grading-heading {
+    flex-direction: column;
+  }
+
+
+  .view-submission-button {
+    width: 100%;
+
+    justify-content: center;
+  }
+}

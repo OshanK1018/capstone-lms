@@ -1,0 +1,558 @@
+.manage-course-main {
+  min-width: 0;
+  min-height: 100vh;
+  flex: 1;
+
+  padding: 38px;
+
+  background: #f4f7fb;
+  color: #172033;
+}
+
+
+.manage-course-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 25px;
+
+  border-bottom: 1px solid #dfe5ee;
+}
+
+
+.manage-course-header h1 {
+  margin: 8px 0;
+  font-size: 28px;
+}
+
+
+.manage-course-header p {
+  margin: 0;
+
+  color: #64748b;
+}
+
+
+.manage-course-label {
+  margin-top: 20px !important;
+
+  font-size: 13px;
+}
+
+
+.back-to-courses-button {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+  color: #2563eb;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.back-to-courses-button:hover {
+  text-decoration: underline;
+}
+
+
+.manage-course-status {
+  padding: 7px 12px;
+
+  border-radius: 999px;
+
+  background: #d1fae5;
+  color: #047857;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+/* Navigation tabs */
+.manage-course-tabs {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  margin: 24px 0;
+}
+
+
+.manage-tab {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 10px 14px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: white;
+  color: #475569;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.manage-tab:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+
+.manage-tab.active {
+  border-color: #2563eb;
+
+  background: #2563eb;
+  color: white;
+}
+
+
+/* Main section */
+.manage-section {
+  padding: 26px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+
+  background: white;
+}
+
+
+.manage-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 24px;
+}
+
+
+.manage-section-heading h2 {
+  margin: 0 0 6px;
+}
+
+
+.manage-section-heading p {
+  margin: 0;
+
+  color: #64748b;
+}
+
+
+/* Course edit form */
+.manage-course-form {
+  max-width: 900px;
+}
+
+
+.manage-form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 18px;
+}
+
+
+.manage-form-group {
+  margin-bottom: 20px;
+}
+
+
+.manage-form-group label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #334155;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.manage-form-group input,
+.manage-form-group select,
+.manage-form-group textarea {
+  width: 100%;
+
+  padding: 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: white;
+  color: #172033;
+
+  font: inherit;
+}
+
+
+.manage-form-group input:focus,
+.manage-form-group select:focus,
+.manage-form-group textarea:focus {
+  outline: none;
+
+  border-color: #2563eb;
+}
+
+
+.manage-form-group textarea {
+  resize: vertical;
+}
+
+
+.manage-save-button {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 11px 17px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #2563eb;
+  color: white;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.manage-save-button:hover {
+  background: #1d4ed8;
+}
+
+
+.manage-save-message {
+  margin-bottom: 18px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+
+  background: #eff6ff;
+  color: #1e40af;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Course roster */
+.roster-table-container {
+  overflow-x: auto;
+}
+
+
+.roster-table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+
+.roster-table th,
+.roster-table td {
+  padding: 14px;
+
+  border-bottom: 1px solid #e2e8f0;
+
+  text-align: left;
+}
+
+
+.roster-table th {
+  background: #f8fafc;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+
+.roster-table td {
+  color: #334155;
+
+  font-size: 14px;
+}
+
+
+.roster-status {
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  background: #d1fae5;
+  color: #047857;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+.remove-student-button {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 7px 10px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: white;
+  color: #dc2626;
+
+  cursor: pointer;
+}
+
+
+.remove-student-button:hover {
+  background: #fef2f2;
+}
+
+
+.empty-roster {
+  display: grid;
+
+  min-height: 220px;
+
+  place-items: center;
+  align-content: center;
+
+  text-align: center;
+
+  color: #64748b;
+}
+
+
+.empty-roster h3 {
+  margin: 12px 0 5px;
+
+  color: #172033;
+}
+
+
+.empty-roster p {
+  margin: 0;
+}
+
+
+/* Grading setup */
+.manage-grading-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+
+.manage-grade-row {
+  display: grid;
+
+  grid-template-columns: minmax(0, 1fr) 140px 42px;
+
+  align-items: end;
+
+  gap: 12px;
+}
+
+
+.manage-grade-row label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+.manage-grade-row input {
+  width: 100%;
+
+  padding: 11px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+
+  background: white;
+}
+
+
+.manage-grade-row input:focus {
+  outline: none;
+
+  border-color: #2563eb;
+}
+
+
+.manage-weight-input {
+  position: relative;
+}
+
+
+.manage-weight-input input {
+  padding-right: 35px;
+}
+
+
+.manage-weight-input span {
+  position: absolute;
+
+  top: 50%;
+  right: 12px;
+
+  transform: translateY(-50%);
+
+  color: #64748b;
+
+  font-weight: 700;
+}
+
+
+.manage-remove-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  height: 42px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: white;
+  color: #dc2626;
+
+  cursor: pointer;
+}
+
+
+.manage-remove-category:hover {
+  background: #fef2f2;
+}
+
+
+.manage-add-category {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: 18px;
+
+  padding: 9px 12px;
+
+  border: 1px solid #2563eb;
+  border-radius: 7px;
+
+  background: white;
+  color: #2563eb;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.manage-add-category:hover {
+  background: #eff6ff;
+}
+
+
+.manage-grade-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin: 20px 0;
+
+  padding: 13px 15px;
+
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+
+  background: #fffbeb;
+  color: #92400e;
+}
+
+
+.manage-grade-total.complete {
+  border-color: #a7f3d0;
+
+  background: #ecfdf5;
+  color: #047857;
+}
+
+
+@media (max-width: 800px) {
+  .manage-course-main {
+    padding: 24px 18px;
+  }
+
+
+  .manage-course-header {
+    flex-direction: column;
+  }
+
+
+  .manage-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .manage-grade-row {
+    grid-template-columns: 1fr 100px 42px;
+  }
+}
+
+
+@media (max-width: 600px) {
+  .manage-course-tabs {
+    flex-direction: column;
+  }
+
+
+  .manage-tab {
+    width: 100%;
+  }
+
+
+  .manage-grade-row {
+    grid-template-columns: 1fr;
+  }
+
+
+  .manage-remove-category {
+    width: 100%;
+  }
+}

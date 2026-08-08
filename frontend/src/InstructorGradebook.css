@@ -419,3 +419,438 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Course grading setup summary */
+.grade-weight-summary {
+  margin-bottom: 24px;
+
+  padding: 22px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+
+  background: white;
+}
+
+
+.grade-weight-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 18px;
+}
+
+
+.grade-weight-summary-header h2 {
+  margin: 0 0 5px;
+
+  font-size: 18px;
+}
+
+
+.grade-weight-summary-header p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+.grade-weight-summary-header > strong {
+  color: #2563eb;
+}
+
+
+.grade-weight-list {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 10px;
+}
+
+
+.grade-weight-item {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 9px 12px;
+
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+
+  background: #eff6ff;
+}
+
+
+.grade-weight-item span {
+  color: #475569;
+
+  font-size: 12px;
+}
+
+
+.grade-weight-item strong {
+  color: #1d4ed8;
+
+  font-size: 12px;
+}
+
+
+/* Category grades displayed in table */
+.grade-category-preview {
+  display: grid;
+
+  min-width: 230px;
+
+  gap: 6px;
+}
+
+
+.grade-category-preview div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding: 4px 0;
+}
+
+
+.grade-category-preview span {
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.grade-category-preview strong {
+  color: #334155;
+
+  font-size: 12px;
+}
+
+
+/* Grade edit modal */
+.gradebook-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+}
+
+
+.gradebook-modal {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+
+  padding: 28px;
+
+  border-radius: 14px;
+
+  background: white;
+
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+}
+
+
+.gradebook-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+
+.gradebook-modal-header h2 {
+  margin: 4px 0 5px;
+}
+
+
+.gradebook-modal-header p {
+  margin: 0;
+
+  color: #64748b;
+}
+
+
+.gradebook-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #f1f5f9;
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+
+.gradebook-modal-close:hover {
+  background: #e2e8f0;
+
+  color: #172033;
+}
+
+
+/* Student grade summary */
+.student-grade-summary {
+  display: grid;
+
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 12px;
+
+  margin: 22px 0;
+}
+
+
+.student-grade-summary div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  padding: 13px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+
+  background: #f8fafc;
+}
+
+
+.student-grade-summary span {
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.student-grade-summary strong {
+  color: #172033;
+
+  font-size: 16px;
+}
+
+
+/* Editable category grades */
+.gradebook-edit-category-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+
+.gradebook-edit-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 14px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+
+  background: #f8fafc;
+}
+
+
+.gradebook-edit-category > div:first-child {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+
+.gradebook-edit-category label {
+  color: #334155;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.gradebook-edit-category > div:first-child span {
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.gradebook-grade-input {
+  position: relative;
+
+  width: 105px;
+}
+
+
+.gradebook-grade-input input {
+  width: 100%;
+
+  padding: 10px 32px 10px 10px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+
+  background: white;
+  color: #172033;
+}
+
+
+.gradebook-grade-input input:focus {
+  outline: none;
+
+  border-color: #2563eb;
+}
+
+
+.gradebook-grade-input span {
+  position: absolute;
+
+  top: 50%;
+  right: 11px;
+
+  transform: translateY(-50%);
+
+  color: #64748b;
+
+  font-weight: 700;
+}
+
+
+/* Grade save confirmation */
+.gradebook-save-message {
+  margin-top: 18px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+
+  background: #ecfdf5;
+  color: #047857;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* Modal buttons */
+.gradebook-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  margin-top: 24px;
+}
+
+
+.gradebook-modal-cancel,
+.gradebook-modal-save {
+  padding: 11px 17px;
+
+  border-radius: 8px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.gradebook-modal-cancel {
+  border: 1px solid #cbd5e1;
+
+  background: white;
+  color: #334155;
+}
+
+
+.gradebook-modal-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  border: 0;
+
+  background: #2563eb;
+  color: white;
+}
+
+
+.gradebook-modal-save:hover {
+  background: #1d4ed8;
+}
+
+
+@media (max-width: 700px) {
+  .gradebook-modal-overlay {
+    align-items: flex-start;
+
+    padding: 12px;
+  }
+
+
+  .gradebook-modal {
+    padding: 20px;
+  }
+
+
+  .student-grade-summary {
+    grid-template-columns: 1fr;
+  }
+
+
+  .gradebook-edit-category {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+
+  .gradebook-grade-input {
+    width: 100%;
+  }
+
+
+  .gradebook-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+
+  .gradebook-modal-cancel,
+  .gradebook-modal-save {
+    width: 100%;
+  }
+}
