@@ -37,6 +37,7 @@ CREATE TABLE Assignments (
     title VARCHAR(100),
     due_date VARCHAR(50), 
     max_points INT,
+    assignment_link TEXT,
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
@@ -46,7 +47,7 @@ CREATE TABLE Submissions (
     assignment_id INT,
     student_id INT,
     submission_date VARCHAR(50),
-    file_link VARCHAR(100),
+    submission_link TEXT,
     score INT,
     feedback VARCHAR(255),
     FOREIGN KEY (assignment_id) REFERENCES Assignments(assignment_id),
@@ -97,7 +98,7 @@ CREATE TABLE Announcements (
     announcement_id INT AUTO_INCREMENT PRIMARY KEY,
     course_id INT,
     title VARCHAR(100),
-    message VARCHAR(255),
+    message TEXT,
     date_posted VARCHAR(50),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
@@ -197,7 +198,7 @@ VALUES (3, 1, 'A');
 
 -- Insert Data for submission, quiz_questions, quiz_attempts
 
-INSERT INTO Submissions (assignment_id, student_id, submission_date, file_link)
+INSERT INTO Submissions (assignment_id, student_id, submission_date, submission_link)
 VALUES (1, 3, 'July 11, 2026', 'hw1.pdf');
 
 -- Insert Data for Quiz Questions

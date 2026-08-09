@@ -11,14 +11,7 @@ export async function getCoursesWithInstructor(instructorID) {
             error: "Invalid instructor ID provided"
         };
     }
-
-    const token = getToken();
-    if (!token) {
-        return {
-            success: false,
-            error: "Authentication token not found, instructor has not logged in"
-        }
-    }
+    
     try {
         const res = await fetch(
             `${API_URL}/courses/instructor/${instructorID}`

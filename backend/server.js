@@ -220,7 +220,6 @@ app.post('/api/auth/logout',
 
 // get course for instructor and number of students
 app.get('/api/courses/instructor/:instructorID',
-    authenticateToken,
     async (req, res) => {
         const instructorID = req.params.instructorID;
         const instructorIDasNum = Number(instructorID);
@@ -286,7 +285,9 @@ app.get('/api/courses/instructor/:instructorID',
     }
 );
 
+// create new course
 app.post('/api/Courses', 
+    authenticateToken,
     async (req, res) => {
         let { title, term, instructorID } = req.body;
         title = title?.trim();
@@ -411,6 +412,22 @@ app.post('api/enrollments/students/',
         
     }
 );
+
+// add new assignment
+app.post('api/Assignments',
+    authenticateToken,
+    async (req, res) => {
+        let { courseID, title, dueDate, maxPoints, assignementLink } = req.body;
+        
+    }
+);
+
+app.post('api/Announcements',
+    authenticateToken,
+    async (req, res) => {
+
+    }
+)
 
 app.listen(port,
     () => {

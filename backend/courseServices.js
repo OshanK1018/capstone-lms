@@ -1,6 +1,7 @@
+import { getToken } from "./userServices";
+
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
 const API_URL = process.env.API_URL || "http://localhost:3000/api"
-
 
 export async function createCourse(newCourseName, newCourseSemester, instructorIDForCourse) {
     if (!instructorIDForCourse || isNaN(instructorIDForCourse)) {
@@ -9,6 +10,14 @@ export async function createCourse(newCourseName, newCourseSemester, instructorI
             success: false,
             message: "None or Invalid instructor ID given"
         };
+    }
+
+    const token = getToken();
+    if (!token) {
+        return {
+            success: false,
+            error: "Authentication token not found, instructor has not logged in"
+        }
     }
 
     try {
@@ -35,5 +44,29 @@ export async function createCourse(newCourseName, newCourseSemester, instructorI
 }
 
 export async function getStudentsInCourse(courseID) {
-    
+    if (!courseID || isNaN(courseID)) {
+        console.error("None or Invalid course ID given");
+        return {
+            success: false,
+            message: 'None of Invalid course ID given'
+        }
+    }
+
+    try {
+        const res = await fetch(`/api/courses/students/${courseID}`);
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Failed to fetch list of students for course');
+        }
+
+        const data = await res.json();
+        return {
+            success: true,
+            student_list: data.student_list
+        }
+    }
+    catch (error) {
+        console.log("getStudentsInCourse error", error.message);
+        return null;
+    }
 }
