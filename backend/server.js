@@ -413,15 +413,16 @@ app.post('api/enrollments/students/',
     }
 );
 
-// add new assignment
+// add new assignment--for instructor
 app.post('api/Assignments',
     authenticateToken,
     async (req, res) => {
-        let { courseID, title, dueDate, maxPoints, assignementLink } = req.body;
-        
+        let { courseID, title, dueDate, maxPoints, assignmentLink } = req.body;
+
     }
 );
 
+// create an announcement--for instructor 
 app.post('api/Announcements',
     authenticateToken,
     async (req, res) => {
