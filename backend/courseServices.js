@@ -3,21 +3,40 @@ import { getToken } from "./userServices";
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
 const API_URL = process.env.API_URL || "http://localhost:3000/api"
 
-export async function createCourse(newCourseName, newCourseSemester, instructorIDForCourse) {
-    if (!instructorIDForCourse || isNaN(instructorIDForCourse)) {
-        console.error("None or Invalid instructor ID given")
+export async function createCourseWithTerm(newCourseName, newCourseSemester, instructorIDForCourse = -1) {
+    if (isNaN(instructorIDForCourse)) {
         return {
             success: false,
-            message: "None or Invalid instructor ID given"
-        };
+            error: "Invalid instructor ID has been given, not a number."
+        }
     }
 
     const token = getToken();
     if (!token) {
         return {
             success: false,
-            error: "Authentication token not found, instructor has not logged in"
+            error: "Authentication token not found, instructor or admin has not logged in"
         }
+    }
+
+    if (instructorIDForCourse === -1) {
+        const currentUserRes = await fetch(`${API_URL}/auth/me`,
+            {
+                method: 'GET',
+                headers: { 
+                    'Authorization' : `Bearer ${token}`
+                }
+            }
+        );
+        const userData = await currentUserRes.json();
+        if (!currentUserRes.ok) {
+            return {
+                success: false,
+                error: userData.error || 'Failed to fetch currently logged in user'
+            }
+        }
+
+        instructorIDForCourse = userData.user.user_id;
     }
 
     try {
@@ -25,21 +44,109 @@ export async function createCourse(newCourseName, newCourseSemester, instructorI
             {
                 method: 'POST',
                 headers: {
-                    'Content-Type' : 'application/json'
+                    'Content-Type' : 'application/json',
+                    'Authorization' : `Bearer ${token}`
                 },
-                body: JSON.stringify({ newCourseName, newCourseSemester, instructorIDForCourse })
+                body: JSON.stringify(
+                    { 
+                        title: newCourseName, 
+                        term: newCourseSemester, 
+                        instructorID: instructorIDForCourse 
+                    }
+                )
             }
         );
         const data = await res.json();
 
         if (!res.ok) {
-            throw new Error(data.error);
+            return {
+                success: false,
+                error: data.error || 'Failed to create course with Term'
+            }
         }
         return data;
     }
     catch (error) {
         console.log("createCourse error", error.message);
-        return null;
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
+export async function createCourseWithDate(newCourseName, startDate, endDate, instructorIDForCourse = -1) {
+    if (isNaN(instructorIDForCourse)) {
+        return {
+            success: false,
+            error: "Invalid instructor ID has been given, not a number."
+        }
+    }
+
+    const token = getToken();
+    if (!token) {
+        return {
+            success: false,
+            error: "Authentication token not found, instructor or admin has not logged in"
+        }
+    }
+
+    if (instructorIDForCourse === -1) {
+        const currentUserRes = await fetch(`${API_URL}/auth/me`,
+            {
+                method: 'GET',
+                headers: { 
+                    'Authorization' : `Bearer ${token}`
+                }
+            }
+        );
+        const userData = await currentUserRes.json();
+        if (!currentUserRes.ok) {
+            return {
+                success: false,
+                error: userData.error || 'Failed to fetch currently logged in user'
+            }
+        }
+
+        instructorIDForCourse = userData.user.user_id;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/Courses`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type' : 'application/json',
+                     'Authorization' : `Bearer ${token}`
+                },
+                body: JSON.stringify(
+                    { 
+                        title: newCourseName, 
+                        startDate: startDate, 
+                        endDate: endDate, 
+                        instructorID: instructorIDForCourse 
+                    }
+
+                )
+
+            }
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+            return {
+                success: false,
+                error: data.error || 'Failed to create course with exacting date'
+            }
+        }
+        return data;
+    }
+    catch (error) {
+        console.log("createCourse error", error.message);
+        return {
+            success: false,
+            error: error.message
+        };
     }
 }
 
@@ -67,6 +174,9 @@ export async function getStudentsInCourse(courseID) {
     }
     catch (error) {
         console.log("getStudentsInCourse error", error.message);
-        return null;
+        return {
+            success: false,
+            error: error.message
+        };
     }
 }

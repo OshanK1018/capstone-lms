@@ -19,19 +19,25 @@ export async function getCoursesWithInstructor(instructorID) {
 
         if (!res.ok) {
             const errorData = await res.json();
-            throw new Error(errorData.error || `Failed to fetch courses for instructor ${instructorID}`);
+            return {
+                success: false,
+                error: errorData.error || `Failed to fetch courses for instructor ${instructorID}`
+            }
         }
 
         const data = await res.json();
         return {
             success: true,
-            courses_count: data.courses_count,
+            courses_count: data.course_count,
             total_students: data.total_students,
             courses: data.courses
         };
     }
     catch (error) {
         console.error("getCoursesWithInstructor error: ", error.message);
-        return null;
+        return {
+            success: false,
+            error: error.message
+        }
     }
 }

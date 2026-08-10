@@ -15,19 +15,27 @@ export async function createUser(name, email, password, role) {
                 headers: {
                     'Content-Type' : 'application/json'
                 },
-                body: JSON.stringify({name, email, password, role})
+                body: JSON.stringify(
+                    {name, email, password, role}
+                )
             });
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error);
+                return {
+                    success: false,
+                    error: data.error || 'Failed to create new user'
+                }
             }
             
             return data;
     }   
     catch(error) {
         console.error("Error adding student");
-        return null;
+        return { 
+            success: false,
+            error: error.message
+        }
     }
 }
 
@@ -43,10 +51,13 @@ export async function loginUser(email, password) {
                 body: JSON.stringify({ email, password })
             }
         );
-        const date = await res.json();
+        const data = await res.json();
         
         if (!res.ok) {
-            throw new Error(data.error || "Login failed");
+            return { 
+                success: false, 
+                error: data.error || "Login failed" 
+            };
         }
 
         setToken(data.jwtToken);
@@ -91,7 +102,10 @@ export async function getCurrentUser() {
         );
         const data = await res.json();
         if (!res.ok) {
-            throw new Error(data.error || "Failed to fetch current user");        
+            return {
+                success: false,
+                error: data.error || 'Failed to fetch current user'
+            }      
         }
 
         return {

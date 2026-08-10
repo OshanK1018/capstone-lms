@@ -157,7 +157,8 @@ INSERT INTO Users (name, email, password, role) VALUES
 ('John Doe', 'jdoe@hunter.cuny.edu', 'pass111', 'student'),
 ('Sameer Auluck', 'sauluck@hunter.cuny.edu', 'pass222', 'student'),
 ('Jai Auluck', 'jauluck@hunter.cuny.edu', 'pass333', 'student'),
-('Olivia Ko', 'oko@hunter.cuny.edu', 'pass444', 'student');
+('Olivia Ko', 'oko@hunter.cuny.edu', 'pass444', 'student'),
+('Tori Khandaker', 'tkhandaker@hunter.cuny.edu', 'passadmin', 'admin');
 
 -- Insert data into Courses
 INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES 

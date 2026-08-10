@@ -7,6 +7,9 @@ const path = require('path');
 const { verify, hash } = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { start } = require('repl');
+
+const { isValidYYYYMMDD } = require('./helperFunctions.js');
 
 const rehashings = 12;
 const JWT_SECRET = process.env.JWT_SECRET || 'mykey'
@@ -164,7 +167,7 @@ app.post('/api/auth/login',
             }
 
             const jwtToken = jwt.sign(
-                { userID: thisUser.user_id, role: thisUser.role },
+                { user_id: thisUser.user_id, role: thisUser.role },
                 JWT_SECRET,
                 { expiresIn: '1d' }
             );
@@ -189,20 +192,21 @@ app.post('/api/auth/login',
     }
 );
 
+// get current user
 app.get('/api/auth/me',
         authenticateToken,
         async (req, res) => {
             try {
                 const [users] = await connectionPool.query(
                     'SELECT user_id, name, email, role FROM Users WHERE user_id = ?',
-                    [req.user.userID]
+                    [req.user.user_id]
                 );
 
                 if (users.length === 0) {
-                    return res.status(404).json({ error: "User not found" });
+                    return res.status(404).json({ error: "Invalid user is logged in." });
                 }
 
-                res.json({ users: users[0] })
+                res.json({ user: users[0] })
             }
             catch (error) {
                 console.error('Error fetching user:', error);
@@ -285,18 +289,46 @@ app.get('/api/courses/instructor/:instructorID',
     }
 );
 
-// create new course
+// create new course with old term system
 app.post('/api/Courses', 
     authenticateToken,
     async (req, res) => {
         let { title, term, instructorID } = req.body;
         title = title?.trim();
-        term = term?.trim();
-        instructorID = instructorID?.trim();
+        let formattedTerm = term?.trim().split(/\s+/);
+        instructorID = Number(instructorID);
 
         if (!title) return res.status(400).json("No course name given.");
-        if (!term) return res.status(400).json("No course term given.");
+        if (!formattedTerm) return res.status(400).json("No course term given.");
         if (!instructorID || isNaN(instructorID)) return res.status(400).json({ error: "No valid instructor ID given." });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (currentUserRole !== 'admin' && currentUserID !== instructorID) {
+            return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
+        }
+
+
+        const season = formattedTerm[0].toLowerCase();
+        const year = Number(formattedTerm[1]);
+        if (!season || !formattedTerm?.[1] || isNaN(year)) {
+            return res.status(403).json({ error: "Invalid term format given please use 'Winter/Spring/Summer/Fall YYYY'" });
+        }
+
+        let start = '';
+        let end = '';
+        let isWinter = false;
+        if      (season.includes('winter')) { start = '12-28'; end = '01-25'; isWinter = true; }
+        else if (season.includes('spring')) { start = '01-28'; end = '05-25'; }
+        else if (season.includes('summer')) { start = '05-28'; end = '08-25'; }
+        else if (season.includes('fall')) { start = '08-28'; end = '12-25'; }
+        else {
+            return res.status(403).json({ error: "Invalid term format given please use 'Winter/Spring/Summer/Fall YYYY'" });
+        }
+
+        let startDate = `${year}-${start}`;
+        let endDate = `${isWinter ? (year + 1) : (year)}-${end}`;
 
         const [isExistingInstructor] = await connectionPool.query(
             `SELECT user_id, role FROM Users WHERE user_id = ?`,
@@ -306,13 +338,13 @@ app.post('/api/Courses',
             return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
         }
         if (isExistingInstructor[0].role != 'instructor' && isExistingInstructor[0].role != 'admin') {
-            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor.`});
+            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor or admin.`});
         }
 
         const [alreadyExistingCourse] = await connectionPool.query(
-            `SELECT title, semester, instructor_id FROM Courses 
-             WHERE title = ? AND semester = ? AND instructor_id = ?`,
-            [title, term, instructorID] 
+            `SELECT title, start_date, end_date, instructor_id FROM Courses 
+             WHERE title = ? AND start_date = ? AND end_date = ? AND instructor_id = ?`,
+            [title, startDate, endDate, instructorID] 
         ); 
 
         if (alreadyExistingCourse.length > 0) {
@@ -321,8 +353,8 @@ app.post('/api/Courses',
 
         try {
             const [successfullyCreatedCourse] = await connectionPool.query(
-                `INSERT INTO Courses (title, semester, instructor_id) VALUES (?, ?, ?)`,
-                [title, term, instructorID]
+                `INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?)`,
+                [title, startDate, endDate, instructorID]
             );
             return res.status(201).json(
                 {
@@ -331,7 +363,9 @@ app.post('/api/Courses',
                     course: {
                         course_id: successfullyCreatedCourse.insertId,
                         title: title,
-                        semester: term,
+                        term: term,
+                        start_date: startDate,
+                        end_date: endDate,
                         instructor_id: instructorID
                     }
                 }
@@ -343,6 +377,79 @@ app.post('/api/Courses',
         }
     }
 );
+
+app.post('/api/Courses/exactDate',
+    authenticateToken,
+    async (req, res) => {
+                let { title, startDate, endDate, instructorID } = req.body;
+        title = title?.trim();
+        startDate = startDate?.trim();
+        endDate = endDate?.trim();
+        instructorID = Number(instructorID);
+
+        if (!title) return res.status(400).json("No course name given.");
+        if (!instructorID || isNaN(instructorID)) return res.status(400).json({ error: "No valid instructor ID given." });
+        if (!isValidYYYYMMDD(startDate)) 
+            return res.status(400).json({ error: "Invalid or no start date given. Please use YYYY-MM-DD format." });
+        if (!isValidYYYYMMDD(endDate)) 
+            return res.status(400).json({ error: "Invalid or no end date given. Please use YYYY-MM-DD format." });
+        if (startDate >= endDate) {
+            return res.status(400).json({ error: "Starting date given is not less than end date."});
+        }
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (currentUserRole !== 'admin' && currentUserID !== instructorID) {
+            return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
+        }
+
+        const [isExistingInstructor] = await connectionPool.query(
+            `SELECT user_id, role FROM Users WHERE user_id = ?`,
+            [instructorID]
+        );
+        if (isExistingInstructor.length === 0) {
+            return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
+        }
+        if (isExistingInstructor[0].role != 'instructor' && isExistingInstructor[0].role != 'admin') {
+            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor or admin.`});
+        }
+
+        const [alreadyExistingCourse] = await connectionPool.query(
+            `SELECT title, start_date, end_date, instructor_id FROM Courses 
+             WHERE title = ? AND start_date = ? AND end_date = ? AND instructor_id = ?`,
+            [title, startDate, endDate, instructorID] 
+        ); 
+
+        if (alreadyExistingCourse.length > 0) {
+            return res.status(409).json({ error: "Course already exists" });
+        }
+
+        try {
+            const [successfullyCreatedCourse] = await connectionPool.query(
+                `INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?)`,
+                [title, startDate, endDate, instructorID]
+            );
+            return res.status(201).json(
+                {
+                    success: true,
+                    message: `Course ${title} created`,
+                    course: {
+                        course_id: successfullyCreatedCourse.insertId,
+                        title: title,
+                        start_date: startDate,
+                        end_date: endDate,
+                        instructor_id: instructorID
+                    }
+                }
+            );
+        }  
+        catch (error) {
+            console.error("Database error:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+) 
 
 app.get('/api/courses/students/:courseID',
     async (req, res) => {
@@ -406,15 +513,15 @@ app.get('/api/courses/students/:courseID',
 
 
 // enroll students
-app.post('api/enrollments/students/',
+app.post('/api/enrollments/students/',
     async (req, res) => {
         let { student_id, course_id } = req.body;
         
     }
 );
 
-// add new assignment--for instructor
-app.post('api/Assignments',
+// add new assignment--for instructor or admin
+app.post('/api/Assignments',
     authenticateToken,
     async (req, res) => {
         let { courseID, title, dueDate, maxPoints, assignmentLink } = req.body;
@@ -422,8 +529,8 @@ app.post('api/Assignments',
     }
 );
 
-// create an announcement--for instructor 
-app.post('api/Announcements',
+// create an announcement--for instructor or admin
+app.post('/api/Announcements',
     authenticateToken,
     async (req, res) => {
 
