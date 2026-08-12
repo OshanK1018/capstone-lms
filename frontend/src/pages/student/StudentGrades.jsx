@@ -3,6 +3,7 @@ import "./StudentGrades.css";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
+// Temporary frontend data until backend API integration is connected
 import {
     detailedGrades,
     enrolledCourses,
@@ -33,10 +34,12 @@ function StudentGrades() {
     const { courseId } = useParams();
     const [filter, setFilter] = useState("All");
 
+    // Integration point: fetch the student's enrolled course data from the backend API
     const selectedCourse = enrolledCourses.find(
         (course) => String(course.id) === courseId
     );
 
+    // Integration point: fetch grades for the selected course from the backend API
     const grades = detailedGrades.filter(
         (grade) => grade.courseCode === selectedCourse?.code
     );
@@ -79,7 +82,8 @@ function StudentGrades() {
                                     <h2>{grade.title}</h2>
 
                                     <p>
-                                        {grade.category} • Due {formatDisplayDate(grade.dueDate)}
+                                        {grade.category} • Due{" "}
+                                        {formatDisplayDate(grade.dueDate)}
                                     </p>
 
                                     <p className="grade-row__feedback">

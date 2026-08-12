@@ -1,10 +1,11 @@
 .assignment-row {
-    margin: 0 30px;
+    margin: 0 28px;
     padding: 18px 0;
-    border-top: 1px solid #edf2f7;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 18px;
+    border-top: 1px solid #edf2f7;
 }
 
 .assignment-row:first-of-type {
@@ -13,47 +14,66 @@
 
 .assignment-row h2 {
     margin: 0;
-    color: #172033;
-    font-size: 0.98rem;
+    color: #1e293b;
+    font-size: 0.88rem;
     font-weight: 800;
 }
 
 .assignment-row p {
     margin: 4px 0 0;
     color: #64748b;
-    font-size: 0.86rem;
+    font-size: 0.76rem;
     font-weight: 600;
 }
 
 .assignment-row__actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .assignment-row__button {
-    width: 90px;
-    height: 38px;
+    min-width: 76px;
+    height: 34px;
+    padding: 0 12px;
     border: 0;
-    border-radius: 10px;
-    background: #418dff;
+    border-radius: 7px;
+    background: #3b82f6;
     color: #ffffff;
-    font-size: 0.85rem;
+    font-size: 0.72rem;
     font-weight: 800;
     cursor: pointer;
 }
 
 .assignment-row__button:hover {
-    background: #2f74d8;
+    background: #2563eb;
 }
 
 .assignment-row__button--secondary {
-    border: 1px solid #cbd5e1;
+    border: 1px solid #dce3ed;
     background: #ffffff;
     color: #64748b;
 }
 
 .assignment-row__button--secondary:hover {
-    background: #eef3fb;
-    color: #418dff;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #3b82f6;
+}
+
+@media (max-width: 650px) {
+    .assignment-row {
+        margin: 0 20px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .assignment-row__actions {
+        width: 100%;
+    }
+
+    .assignment-row__button {
+        flex: 1;
+    }
 }
