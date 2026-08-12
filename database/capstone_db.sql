@@ -9,7 +9,8 @@ CREATE TABLE Users (
     name VARCHAR(100),
     email VARCHAR(100),
     password VARCHAR(100),
-    role VARCHAR(50) 
+    role VARCHAR(50),
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1))
 );
 
 -- 2. Courses Table
@@ -19,6 +20,7 @@ CREATE TABLE Courses (
     start_date DATE,
     end_date DATE,
     instructor_id INT,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (instructor_id) REFERENCES Users(user_id)
 );
 
@@ -28,6 +30,7 @@ CREATE TABLE Enrollments (
     student_id INT,
     course_id INT,
     enrolled_at DATETIME,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (student_id) REFERENCES Users(user_id),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
@@ -40,6 +43,7 @@ CREATE TABLE Assignments (
     due_date DATETIME, 
     max_points INT,
     assignment_link TEXT,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
@@ -52,6 +56,7 @@ CREATE TABLE Submissions (
     submission_link TEXT,
     score INT,
     feedback VARCHAR(255),
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (assignment_id) REFERENCES Assignments(assignment_id),
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
@@ -62,6 +67,7 @@ CREATE TABLE Quizzes (
     course_id INT,
     title VARCHAR(100),
     due_date DATETIME,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
@@ -71,6 +77,7 @@ CREATE TABLE Quiz_Questions (
     quiz_id INT,
     question_text VARCHAR(255),
     correct_answer VARCHAR(100),
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );
 
@@ -81,6 +88,7 @@ CREATE TABLE Quiz_Attempts (
     student_id INT,
     score INT,
     attempt_date DATETIME,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id),
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
@@ -91,6 +99,7 @@ CREATE TABLE Grades (
     student_id INT,
     course_id INT,
     letter_grade VARCHAR(10),
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (student_id) REFERENCES Users(user_id),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
@@ -102,6 +111,7 @@ CREATE TABLE Announcements (
     title VARCHAR(100),
     message TEXT,
     date_posted DATETIME,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
@@ -201,7 +211,7 @@ INSERT INTO Quizzes (course_id, title, due_date) VALUES
 (5, 'Grammatical Cases Exam', '2026-07-15 00:00:00');
 
 INSERT INTO Grades (student_id, course_id, letter_grade)
-VALUES (3, 1, 'A');
+VALUES (3, 2, 'A');
 
 
 -- Insert Data for submission, quiz_questions, quiz_attempts
@@ -217,6 +227,6 @@ INSERT INTO Quiz_Questions (quiz_id, question_text, correct_answer) VALUES
 
 -- Insert Data for Quiz Attempts
 INSERT INTO Quiz_Attempts (quiz_id, student_id, score, attempt_date) VALUES 
-(1, 4, 100, '2026-06-24 00:00:34'),
-(2, 5, 100, '2026-07-14 21:22:02'),
+(1, 1, 400, '2026-06-24 00:00:34'),
+(2, 1, 500, '2026-07-14 21:22:02'),
 (2, 6, 85, '2026-08-01 02:22:21');
