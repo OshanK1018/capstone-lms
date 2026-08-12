@@ -2,6 +2,7 @@ import "./CoursePages.css";
 import "./StudentAssignments.css";
 import { useParams } from "react-router-dom";
 
+// Temporary frontend data until course API/database integration is connected
 import {
     enrolledCourses,
     upcomingAssignments,
@@ -27,6 +28,7 @@ function sortByDueDate(items) {
 function StudentAssignments() {
     const { courseId } = useParams();
 
+    // Integration point: the backend should return assignments for the selected course
     const selectedCourse = enrolledCourses.find(
         (course) => String(course.id) === courseId
     );

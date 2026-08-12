@@ -8,35 +8,35 @@
 .dashboard__header {
     max-width: 1200px;
     margin: 0 auto 25px;
-    padding: 34px;
+    padding: 30px 34px;
     background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 55%, #f3f9ff 100%);
-    border: 1px solid #e2e8f0;
-    border-radius: 22px;
+    border: 1px solid #e1e7ef;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 25px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
-
 .dashboard__label {
-    margin: 0 0 7px;
-    font-size: 0.8rem;
+    margin: 0 0 5px;
+    color: #3b82f6;
+    font-size: 0.73rem;
     font-weight: 800;
-    color: #418dff;
 }
 
 .dashboard__title {
     margin: 0;
-    font-size: 2.2rem;
-    font-weight: 650;
     color: #172033;
+    font-size: 2rem;
+    font-weight: 750;
 }
 
 .dashboard__description {
-    margin: 10px 0 0;
-    color: #64748b;
-    font-size: 1rem;
-    font-weight: 700;
+    margin: 7px 0 0;
+    color: #718096;
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
 .dashboard__term {
@@ -47,16 +47,17 @@
 
 .dashboard__term span {
     display: block;
-    margin-bottom: 4px;
-    color: #64748b;
-    font-size: 0.9rem;
+    margin-bottom: 3px;
+    color: #94a3b8;
+    font-size: 0.7rem;
     font-weight: 700;
 }
 
 .dashboard__term strong {
     display: block;
-    color: #3f4a5b;
-    font-size: 1.1rem;
+    color: #334155;
+    font-size: 0.95rem;
+    font-weight: 800;
 }
 
 .dashboard__summary {
@@ -70,20 +71,20 @@
 .summary-card {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 16px;
     padding: 18px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    box-shadow: 0 2px 6px #d4d5d5;
+    border: 1px solid #e1e7ef;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .summary-card__icon {
     display: grid;
-    width: 50px;
-    height: 50px;
+    width: 46px;
+    height: 46px;
     place-items: center;
-    border-radius: 14px;
+    border-radius: 11px;
 }
 
 .summary-card__icon--courses {
@@ -104,16 +105,16 @@
 .summary-card span {
     display: block;
     color: #64748b;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     font-weight: 600;
 }
 
 .summary-card strong {
     display: block;
-    margin-top: 5px;
+    margin-top: 4px;
     color: #172033;
-    font-size: 1.4rem;
-    font-weight: 650;
+    font-size: 1.25rem;
+    font-weight: 750;
 }
 
 .dashboard__grid {
@@ -132,22 +133,19 @@
 }
 
 .dashboard__card {
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
+    border: 1px solid #e1e7ef;
+    border-radius: 14px;
     background-color: #ffffff;
     overflow: hidden;
-}
-
-.dashboard__card,
-.dashboard__header {
-    box-shadow: 0 2px 6px #d4d5d5;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .dashboard__card h2 {
     margin: 0;
-    padding: 18px 28px;
-    font-size: 1.05rem;
-    color: #172033;
+    padding: 17px 28px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1e293b;
     border-bottom: 1px solid #edf2f7;
     background: #f8fafc;
 }
@@ -209,24 +207,26 @@
 .assignment-item h3,
 .grade-item h3 {
     margin: 0;
-    font-size: 1rem;
-    color: #172033;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #1e293b;
 }
 
 .course-item p {
-    margin: 1px 0 0;
+    margin: 3px 0 0;
     color: #64748b;
-    font-size: 0.85rem;
+    font-size: 0.76rem;
+    font-weight: 600;
 }
 
 .course-item__action {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: #64748b;
-    font-size: 0.9rem;
-    font-weight: 600;
+    gap: 3px;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
 .course-item__action svg {
@@ -240,23 +240,23 @@
 .announcement-item span {
     display: block;
     margin-bottom: 4px;
-    color: #3d7dde;
-    font-size: 0.78rem;
+    color: #3b82f6;
+    font-size: 0.7rem;
     font-weight: 700;
 }
 
 .announcement-item h3 {
     margin: 0 0 4px;
-    color: #172033;
-    font-size: 0.9rem;
-    font-weight: 00;
+    color: #1e293b;
+    font-size: 0.84rem;
+    font-weight: 800;
 }
 
 .announcement-item p {
     margin: 0;
     color: #64748b;
-    font-size: 0.95rem;
-    line-height: 1.4;
+    font-size: 0.8rem;
+    line-height: 1.5;
 }
 
 .assignment-item {
@@ -268,23 +268,24 @@
 
 .assignment-item h3 {
     margin: 0;
-    color: #172033;
-    font-size: 0.95rem;
-    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.88rem;
+    font-weight: 800;
 }
 
 .assignment-item p {
     margin: 4px 0 0;
     color: #64748b;
-    font-size: 0.85rem;
+    font-size: 0.76rem;
+    font-weight: 600;
 }
 
 .assignment-item__due {
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: #fef3c7; 
+    padding: 5px 9px;
+    border-radius: 20px;
+    background: #fef3c7;
     color: #d97706;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -297,19 +298,128 @@
 }
 
 .grade-item h3 {
-    color: #172033;
-    font-size: 0.95rem;
-    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.88rem;
+    font-weight: 800;
 }
 
 .grade-item p {
     margin: 4px 0 0;
     color: #64748b;
-    font-size: 0.85rem;
+    font-size: 0.76rem;
+    font-weight: 600;
 }
 
 .grade-item strong {
+    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.dashboard-empty {
+    margin: 0 30px;
+    padding: 28px 0;
+    color: #64748b;
+}
+
+.dashboard-empty h3 {
+    margin: 0;
     color: #172033;
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.dashboard-empty p {
+    max-width: 460px;
+    margin: 8px 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.dashboard-empty__button {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #418dff;
+    color: #ffffff;
+    font-size: 0.86rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.dashboard-empty__button:hover {
+    background: #2f74d8;
+}
+
+@media (max-width: 900px) {
+    .dashboard__summary {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .dashboard {
+        padding: 18px;
+    }
+
+    .dashboard__header {
+        padding: 24px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .dashboard__title {
+        font-size: 1.7rem;
+    }
+
+    .dashboard__term {
+        min-width: 0;
+        padding: 0;
+    }
+
+    .summary-card {
+        padding: 16px;
+    }
+
+    .course-item,
+    .assignment-item,
+    .grade-item,
+    .announcement-item {
+        margin: 0 20px;
+    }
+
+    .course-item {
+        gap: 12px;
+    }
+
+    .course-item__code {
+        width: 48px;
+        height: 48px;
+    }
+
+    .course-item__action {
+        font-size: 0;
+    }
+
+    .assignment-item {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .grade-item {
+        align-items: flex-start;
+    }
+
+    .dashboard-empty {
+        margin: 0 20px;
+    }
 }

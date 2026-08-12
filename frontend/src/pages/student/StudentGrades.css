@@ -1,35 +1,35 @@
 .grade-filters {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .grade-filters button {
-    padding: 7px 11px;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
+    padding: 5px 9px;
+    border: 1px solid #dce3ed;
+    border-radius: 20px;
     background: #ffffff;
     color: #64748b;
-    font-size: 0.78rem;
+    font-size: 0.7rem;
     font-weight: 700;
     cursor: pointer;
 }
 
 .grade-filters button:hover,
 .grade-filters button.active {
-    color: #418dff;
-    background: #eef3fb;
-    border-color: #d7e5ff;
+    color: #3b82f6;
+    background: #eff6ff;
+    border-color: #bfdbfe;
 }
 
 .grade-row {
-    margin: 0 30px;
+    margin: 0 28px;
     padding: 18px 0;
-    border-top: 1px solid #edf2f7;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 24px;
+    border-top: 1px solid #edf2f7;
 }
 
 .grade-row:first-of-type {
@@ -38,44 +38,50 @@
 
 .grade-row h2 {
     margin: 0;
-    color: #172033;
-    font-size: 0.98rem;
-    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.88rem;
+    font-weight: 800;
 }
 
 .grade-row p {
     margin: 4px 0 0;
     color: #64748b;
-    font-size: 0.85rem;
+    font-size: 0.76rem;
+    font-weight: 600;
 }
 
 .grade-row__feedback {
     max-width: 600px;
+    color: #7c8ba1;
 }
 
 .grade-row__details {
-    min-width: 130px;
+    min-width: 120px;
     text-align: right;
 }
 
 .grade-row__details strong {
     display: block;
-    margin-top: 8px;
-    color: #172033;
-    font-size: 0.95rem;
-    font-weight: 700;
+    margin-top: 7px;
+
+    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 800;
 }
 
 .grade-row__details p {
-    margin-top: 4px;
+    margin-top: 3px;
+
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .grade-row__status {
     display: inline-block;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #eef3fb;
-    font-size: 0.76rem;
+    padding: 3px 7px;
+    border-radius: 20px;
+    font-size: 0.68rem;
     font-weight: 700;
 }
 
@@ -86,10 +92,27 @@
 
 .grade-row__status--pending {
     background: #fef3c7;
-    color: #d97706;
+    color: #b66a0b;
 }
 
 .grade-row__status--missing {
     background: #fee2e2;
-    color: #dc2626;
+    color: #b91c1c;
+}
+
+@media (max-width: 650px) {
+    .grade-filters {
+        flex-wrap: wrap;
+    }
+
+    .grade-row {
+        margin: 0 20px;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .grade-row__details {
+        min-width: 0;
+        text-align: left;
+    }
 }

@@ -2,6 +2,7 @@ import "./CoursePages.css";
 import "./StudentQuizzes.css";
 import { useParams } from "react-router-dom";
 
+// Temporary frontend data until backend API integration is connected
 import {
     enrolledCourses,
     upcomingQuizzes,
@@ -38,19 +39,23 @@ function sortByDueDate(items) {
 function StudentQuizzes() {
     const { courseId } = useParams();
 
+    // Integration point: fetch the student's enrolled course data from the backend API
     const selectedCourse = enrolledCourses.find(
         (course) => String(course.id) === courseId
     );
 
+    // Integration point: fetch quizzes for the selected course from the backend API
     const quizzes = sortByDueDate(
         upcomingQuizzes.filter(
             (quiz) => quiz.courseCode === selectedCourse?.code
         )
     );
 
-    // Placeholder until the real quiz-taking page is implemented
+    // Placeholder until the real quiz taking page is connected
     function handleStartQuiz(quizTitle) {
-        window.alert(`${quizTitle} will open when quiz functionality is connected.`);
+        window.alert(
+            `${quizTitle} will open when quiz functionality is connected.`
+        );
     }
 
     return (
@@ -72,7 +77,9 @@ function StudentQuizzes() {
                                 <div className="quiz-row__details">
                                     <div>
                                         <span>Due Date</span>
-                                        <strong>{formatDisplayDate(quiz.dueDate)}</strong>
+                                        <strong>
+                                            {formatDisplayDate(quiz.dueDate)}
+                                        </strong>
                                     </div>
 
                                     <div>

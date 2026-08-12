@@ -1,6 +1,7 @@
 import "./CourseDetail.css";
 import { useParams } from "react-router-dom";
 
+// Temporary frontend data until backend API integration is connected
 import {
     enrolledCourses,
     upcomingAssignments,
@@ -34,7 +35,15 @@ function sortByNewestDate(items) {
 function CourseDetail() {
     const { courseId } = useParams();
 
-    const selectedCourse = enrolledCourses.find(
+    // Temporary browser storage
+    // Replace with the student's enrolled courses from the backend API
+    const savedCourses = localStorage.getItem("studentCourses");
+    const studentCourses = savedCourses
+        ? JSON.parse(savedCourses)
+        : enrolledCourses;
+
+    // Integration point: fetch the logged in student's enrolled courses from the backend API
+    const selectedCourse = studentCourses.find(
         (course) => String(course.id) === courseId
     );
 
@@ -49,6 +58,7 @@ function CourseDetail() {
         );
     }
 
+    // Integration point: these will later be returned by course specific backend API calls
     const courseAssignments = upcomingAssignments.filter(
         (assignment) => assignment.courseCode === selectedCourse.code
     );
@@ -85,7 +95,8 @@ function CourseDetail() {
 
     const courseAnnouncements = sortByNewestDate(
         announcements.filter(
-            (announcement) => announcement.courseCode === selectedCourse.code
+            (announcement) =>
+                announcement.courseCode === selectedCourse.code
         )
     );
 
@@ -97,8 +108,13 @@ function CourseDetail() {
 
                     {courseAnnouncements.length > 0 ? (
                         courseAnnouncements.map((announcement) => (
-                            <div className="course-detail-item" key={announcement.id}>
-                                <span>{formatDisplayDate(announcement.date)}</span>
+                            <div
+                                className="course-detail-item"
+                                key={announcement.id}
+                            >
+                                <span>
+                                    {formatDisplayDate(announcement.date)}
+                                </span>
                                 <h3>{announcement.courseCode}</h3>
                                 <p>{announcement.message}</p>
                             </div>
@@ -125,7 +141,10 @@ function CourseDetail() {
                                         <p>{workItem.type}</p>
                                     </div>
 
-                                    <span>Due {formatDisplayDate(workItem.dueDate)}</span>
+                                    <span>
+                                        Due{" "}
+                                        {formatDisplayDate(workItem.dueDate)}
+                                    </span>
                                 </div>
                             ))
                         ) : (
@@ -150,7 +169,8 @@ function CourseDetail() {
                                     </div>
 
                                     <span className="course-work-item__overdue">
-                                        Due {formatDisplayDate(workItem.dueDate)}
+                                        Due{" "}
+                                        {formatDisplayDate(workItem.dueDate)}
                                     </span>
                                 </div>
                             ))

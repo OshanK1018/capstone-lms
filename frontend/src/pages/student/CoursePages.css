@@ -1,7 +1,7 @@
 .course-page {
     min-height: 100vh;
     padding: 24px 25px;
-    background: #f8fafc;
+    background: #f6f8fb;
     color: #172033;
 }
 
@@ -9,64 +9,67 @@
     max-width: 1200px;
     margin: 0 auto;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    box-shadow: 0 2px 6px #d4d5d5;
+    border: 1px solid #e1e7ef;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     overflow: hidden;
 }
 
 .course-page__card h1 {
     margin: 0;
-    padding: 18px 28px;
-    color: #172033;
-    font-size: 1.15rem;
-    border-bottom: 1px solid #edf2f7;
+    padding: 17px 28px;
+    color: #1e293b;
     background: #f8fafc;
-}
-
-.course-page__item {
-    margin: 0 30px;
-    padding: 18px 0;
-    border-top: 1px solid #edf2f7;
-}
-
-.course-page__item:first-of-type {
-    border-top: 0;
-}
-
-.course-page__item h2 {
-    margin: 0;
-    color: #172033;
-    font-size: 0.98rem;
-    font-weight: 700;
-}
-
-.course-page__item p {
-    margin: 4px 0 0;
-    color: #64748b;
-    font-size: 0.85rem;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 1rem;
+    font-weight: 800;
 }
 
 .course-page__empty {
     margin: 0;
-    padding: 24px 30px;
-    color: #64748b;
-    font-size: 0.9rem;
+    padding: 24px 28px;
+    color: #94a3b8;
+    font-size: 0.78rem;
     font-weight: 600;
 }
 
 .course-page__header-row {
-    padding: 18px 28px;
-    border-bottom: 1px solid #edf2f7;
-    background: #f8fafc;
+    padding: 17px 28px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid #edf2f7;
 }
 
 .course-page__header-row h1 {
     padding: 0;
-    border-bottom: 0;
     background: transparent;
+    border-bottom: 0;
+}
+
+@media (max-width: 650px) {
+    .course-page {
+        padding: 20px 18px;
+    }
+
+    .course-page__card h1 {
+        padding: 16px 20px;
+    }
+
+    .course-page__empty {
+        padding: 22px 20px;
+    }
+
+    .course-page__header-row {
+        padding: 16px 20px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .course-page__header-row h1 {
+        padding: 0;
+    }
 }
