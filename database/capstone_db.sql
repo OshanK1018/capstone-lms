@@ -213,7 +213,6 @@ INSERT INTO Quizzes (course_id, title, due_date) VALUES
 INSERT INTO Grades (student_id, course_id, letter_grade)
 VALUES (3, 2, 'A');
 
-
 -- Insert Data for submission, quiz_questions, quiz_attempts
 
 INSERT INTO Submissions (assignment_id, student_id, submission_date, submission_link)

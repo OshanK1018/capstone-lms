@@ -58,9 +58,10 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/Users',
     async (req, res) => {
         let { name, email, password, role } = req.body;
-        for (value in req.body) {
-            value = value.trim();
-        }
+        name = name?.trim();
+        email = email?.trim();
+        password = password?.trim();
+        role = role?.trim();
 
         if (!name)     { return res.status(400).json({ error: "No name given." }); }
         if (!email)    { return res.status(400).json({ error: "No email given." }); }
@@ -70,7 +71,7 @@ app.post('/api/Users',
         if (!email.includes('@') || !email.includes('.')) {
             return res.status(400).json({ error: "Email is not valid. " });
         }
-        if (!password.length > 8) {
+        if (!(password.length > 8)) {
             return res.status(400).json({ error: "Password is too short. Must be more than 8 characters long." });
         }
 
@@ -294,22 +295,23 @@ app.get('/api/courses/instructor/:instructorID',
 app.post('/api/Courses', 
     authenticateToken,
     async (req, res) => {
-        const currentUserID = req.user.user_id;
-        const currentUserRole = req.user.role;
-
-        if (currentUserRole !== 'admin' && currentUserID !== instructorID) {
-            return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
-        }
-        
-        let { title, term, instructorID } = req.body;
+        let { title, term, instructor_id } = req.body;
         title = title?.trim();
         let formattedTerm = term?.trim().split(/\s+/);
-        instructorID = Number(instructorID);
+        const instructorIDasNum = Number(instructor_id);
 
         if (!title) return res.status(400).json("No course name given.");
         if (!formattedTerm) return res.status(400).json("No course term given.");
-        if (!instructorID || isNaN(instructorID)) return res.status(400).json({ error: "No valid instructor ID given." });
+        if (!instructorIDasNum || isNaN(instructorIDasNum)) 
+            return res.status(400).json({ error: "No valid instructor ID given." });
 
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+        if (currentUserRole !== 'admin' && currentUserID !== instructorIDasNum) {
+            return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
+        }
+        
+    
         const season = formattedTerm[0].toLowerCase();
         const year = Number(formattedTerm[1]);
         if (!season || !formattedTerm?.[1] || isNaN(year)) {
@@ -332,19 +334,19 @@ app.post('/api/Courses',
 
         const [isExistingInstructor] = await connectionPool.query(
             `SELECT user_id, role FROM Users WHERE user_id = ?`,
-            [instructorID]
+            [instructorIDasNum]
         );
         if (isExistingInstructor.length === 0) {
-            return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
+            return res.status(404).json({ error: `User with ID ${instructorIDasNum} does not exist.`});
         }
         if (isExistingInstructor[0].role != 'instructor' && isExistingInstructor[0].role != 'admin') {
-            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor or admin.`});
+            return res.status(403).json({ error: `User with ID ${instructorIDasNum} is not an instructor or admin.`});
         }
 
         const [alreadyExistingCourse] = await connectionPool.query(
             `SELECT title, start_date, end_date, instructor_id FROM Courses 
              WHERE title = ? AND start_date = ? AND end_date = ? AND instructor_id = ? AND isArchived = 0`,
-            [title, startDate, endDate, instructorID] 
+            [title, startDate, endDate, instructorIDasNum] 
         ); 
 
         if (alreadyExistingCourse.length > 0) {
@@ -354,9 +356,9 @@ app.post('/api/Courses',
         try {
             const [successfullyCreatedCourse] = await connectionPool.query(
                 `INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?)`,
-                [title, startDate, endDate, instructorID]
+                [title, startDate, endDate, instructorIDasNum]
             );
-            return res.status(201).json(
+            return res.status(200).json(
                 {
                     success: true,
                     message: `Course ${title} created`,
@@ -366,7 +368,7 @@ app.post('/api/Courses',
                         term: term,
                         start_date: startDate,
                         end_date: endDate,
-                        instructor_id: instructorID
+                        instructor_id: instructorIDasNum
                     }
                 }
             );
@@ -381,45 +383,43 @@ app.post('/api/Courses',
 app.post('/api/Courses/exactDate',
     authenticateToken,
     async (req, res) => {
+        let { title, start_date, end_date, instructor_id } = req.body;
+        title = title?.trim();
+        start_date = start_date?.trim();
+        end_date = end_date?.trim();
+        const instructorIDAsNum = Number(instructor_id);
+
+        if (!title) return res.status(400).json("No course name given.");
+        if (!instructorIDAsNum) return res.status(400).json({ error: "No valid instructor ID given." });
+        if (!isValidYYYYMMDD(start_date)) 
+            return res.status(400).json({ error: "Invalid or no start date given. Please use YYYY-MM-DD format." });
+        if (!isValidYYYYMMDD(end_date)) 
+            return res.status(400).json({ error: "Invalid or no end date given. Please use YYYY-MM-DD format." });
+        if (start_date >= end_date) {
+            return res.status(400).json({ error: "Starting date given is not less than end date."});
+        }
+
         const currentUserID = req.user.user_id;
         const currentUserRole = req.user.role;
-
         if (currentUserRole !== 'admin' && currentUserID !== instructorID) {
             return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
         }
 
-        let { title, startDate, endDate, instructorID } = req.body;
-
-        title = title?.trim();
-        startDate = startDate?.trim();
-        endDate = endDate?.trim();
-        instructorID = Number(instructorID);
-
-        if (!title) return res.status(400).json("No course name given.");
-        if (!instructorID || isNaN(instructorID)) return res.status(400).json({ error: "No valid instructor ID given." });
-        if (!isValidYYYYMMDD(startDate)) 
-            return res.status(400).json({ error: "Invalid or no start date given. Please use YYYY-MM-DD format." });
-        if (!isValidYYYYMMDD(endDate)) 
-            return res.status(400).json({ error: "Invalid or no end date given. Please use YYYY-MM-DD format." });
-        if (startDate >= endDate) {
-            return res.status(400).json({ error: "Starting date given is not less than end date."});
-        }
-
         const [isExistingInstructor] = await connectionPool.query(
             `SELECT user_id, role FROM Users WHERE user_id = ?`,
-            [instructorID]
+            [instructorIDAsNum]
         );
         if (isExistingInstructor.length === 0) {
-            return res.status(404).json({ error: `User with ID ${instructorID} does not exist.`});
+            return res.status(404).json({ error: `User with ID ${instructorIDAsNum} does not exist.`});
         }
         if (isExistingInstructor[0].role != 'instructor' && isExistingInstructor[0].role != 'admin') {
-            return res.status(403).json({ error: `User with ID ${instructorID} is not an instructor or admin.`});
+            return res.status(403).json({ error: `User with ID ${instructorIDAsNum} is not an instructor or admin.`});
         }
 
         const [alreadyExistingCourse] = await connectionPool.query(
             `SELECT title, start_date, end_date, instructor_id FROM Courses 
              WHERE title = ? AND start_date = ? AND end_date = ? AND instructor_id = ?`,
-            [title, startDate, endDate, instructorID] 
+            [title, start_date, end_date, instructorIDAsNum] 
         ); 
 
         if (alreadyExistingCourse.length > 0) {
@@ -428,19 +428,19 @@ app.post('/api/Courses/exactDate',
 
         try {
             const [successfullyCreatedCourse] = await connectionPool.query(
-                `INSERT INTO Courses (title, start_date, end_date, instructor_id)) VALUES (?, ?, ?, ?)`,
-                [title, startDate, endDate, instructorID]
+                `INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?)`,
+                [title, start_date, end_date, instructorIDAsNum] 
             );
-            return res.status(201).json(
+            return res.status(200).json(
                 {
                     success: true,
                     message: `Course ${title} created`,
                     course: {
                         course_id: successfullyCreatedCourse.insertId,
                         title: title,
-                        start_date: startDate,
-                        end_date: endDate,
-                        instructor_id: instructorID
+                        start_date: start_date,
+                        end_date: end_date,
+                        instructor_id: instructorIDAsNum
                     }
                 }
             );
@@ -559,13 +559,14 @@ app.post('/api/enrollments/students/',
                 `INSERT INTO Enrollments (student_id, course_id, enrolled_at) VALUES (?, ?, CURRENT_TIMESTAMP())`,
                 [studentIDasNum, courseIDasNum]
             );
-            return res.status(201).json(
+            return res.status(200).json(
                 {
                     success: true,
                     message: `Successfully enrolled student ${studentIDasNum} into course ${courseIDasNum}`,
                     enrollment: {
                         course: courseIDasNum,
-                        student: studentIDasNum
+                        student: studentIDasNum,
+                        enrolled_at: 'just now'
                     }
                 }
             );
@@ -577,35 +578,28 @@ app.post('/api/enrollments/students/',
     }
 );
 
-app.patch('/api/enrollments/students/archive',
-    async (req, res) => {
-        
-    }
-);
-
 // add new assignment--for instructor or admin
 app.post('/api/Assignments',
     authenticateToken,
     async (req, res) => {
-        const currentUserID = req.user.user_id;
-        const currentUserRole = req.user.role;
-
-        if (currentUserRole !== 'admin' && currentUserRole != 'instructor') {
-            return res.status(403).json({ error: 'Only admins and instructors can create assignments' });
-        }
-
-        let { courseID, title, dueDate, maxPoints, assignmentLink } = req.body;
-        const courseIDasNum = Number(courseID);
-        let maxPointsAsNum = Number(maxPoints);
+        let { course_id, title, due_date, max_points, assignment_link } = req.body;
+        const courseIDasNum = Number(course_id);
+        let maxPointsAsNum = Number(max_points);
         title = title?.trim();
-        assignmentLink = assignmentLink?.trim();        
-        dueDate = dueDate?.trim();
+        const assignmentLink = assignment_link?.trim();        
+        const dueDate = due_date?.trim();
 
         if (!courseIDasNum) return res.status(400).json({ error: 'No course ID given'});
         if (!maxPointsAsNum) maxPointsAsNum = 100;
         if (!dueDate) return res.status(400).json({ error: 'No due date given'});
         if (!title) return res.status(400).json({ error: 'No title given' });
         if (!assignmentLink) return res.status(400).json({ error: 'No assignment link given' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+        if (currentUserRole !== 'admin' && currentUserRole != 'instructor') {
+            return res.status(403).json({ error: 'Only admins and instructors can create assignments' });
+        }
 
         const [date, time] = dueDate.split(' ');       
         if (!isValidYYYYMMDD(date)) {
@@ -624,13 +618,22 @@ app.post('/api/Assignments',
             return res.status(409).json({ error: 'Assignment already exists' });
         }
 
-        const [isActuallyYourCourse] = await connectionPool.query(
-            `SELECT course_id FROM Courses
-             WHERE course_id = ? AND instructor_id = ?`,
-             [courseIDasNum, currentUserID]
-        );
+        let isActuallyYourCourse;
+        if (currentUserRole === 'admin') {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                 [courseIDasNum]
+            );
+        }
+        else {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id FROM Courses WHERE course_id = ? AND instructor_id = ? AND isArchived = 0`,
+                 [courseIDasNum, currentUserID]
+            );
+        }
         if (isActuallyYourCourse.length === 0) {
-            return res.status(403).json({ error: 'You cannot assign things that are not in your course' });
+            return res.status(403).json({ error: `This course either doesn't exist or you're trying to post an assignment
+                                                  for a course that you aren't an instructor for.` });
         }
 
         const [isActiveUser] = await connectionPool.query(
@@ -646,7 +649,7 @@ app.post('/api/Assignments',
                 `INSERT INTO Assignments (course_id, title, due_date, max_points, assignment_link) VALUES (?, ?, ?, ?, ?)`,
                 [courseIDasNum, title, dueDate, maxPointsAsNum, assignmentLink]
             );
-            return res.status(201).json(
+            return res.status(200).json(
                 {
                     success: true,
                     message: `Successfully posted assignment to course ${courseIDasNum}`,
@@ -654,7 +657,7 @@ app.post('/api/Assignments',
                         title: title,
                         due_date: dueDate,
                         course_id: courseIDasNum,
-                        max_points: maxPoints,
+                        max_points: maxPointsAsNum,
                         assignment_link: assignmentLink
                     }
                 }
@@ -671,13 +674,71 @@ app.post('/api/Assignments',
 app.post('/api/Announcements',
     authenticateToken,
     async (req, res) => {
+        let { course_id, title, message } = req.body;
+        const courseIDasNum = Number(course_id);
+        title = title?.trim();
+        message = message?.trim();
+
+        if (!courseIDasNum) return res.status(400).json({ error: 'Course ID given is not a number' });
+        if (!title && !message) return res.status(400).json(
+            { error: `Announcement must have at least either a title or a message` }
+        );
+        if (!title) title = "Untitled";
+        if (!message) message = " ";
+
         const currentUserID = req.user.user_id;
         const currentUserRole = req.user.role;
-
-        if (currentUserRole !== 'admin' && currentUserID !== instructorID) {
-            return res.status(403).json({ error: 'Only admins can create courses for other instructors' });
+        if (currentUserRole !== 'admin' && currentUserRole !== 'instructor') {
+            return res.status(403).json({ error: 'Only admins and instructors can create assignments' });
         }
 
+        let isActuallyYourCourse;
+        if (currentUserRole === 'admin') {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseIDasNum]
+            );
+        }
+        else {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id, instructor_id FROM Courses WHERE course_id = ? AND instructor_id = ? AND isArchived = 0`,
+                [courseIDasNum, currentUserID]
+            );
+        }
+        if (isActuallyYourCourse.length === 0) {
+            return res.status(403).json({ error: `This course either doesn't exist or you're trying to post an assignment
+                                                  for a course that you aren't an instructor for.` });
+        }
+
+        const [isActiveUser] = await connectionPool.query(
+            `SELECT user_id FROM Users WHERE user_id = ? AND (role = 'instructor' OR role = 'admin') AND isArchived = 0`,
+            [currentUserID]
+        );
+        if (isActiveUser.length === 0) {
+            return res.status(404).json({ error: "Who the fuck are you bro" });
+        }
+
+        try {
+            const [successfullyPostedAnnouncement] = await connectionPool.query(
+                `INSERT INTO Announcements (course_id, title, message, date_posted) VALUES (?, ?, ?, CURRENT_TIMESTAMP())`,
+                [courseIDasNum, title, message]
+            );
+            return res.status(201).json(
+                {
+                    success: true,
+                    assignment: {
+                        course_id: courseIDasNum,
+                        title: title,
+                        message: message,
+                        date_posted: 'just now'
+                    }
+                }
+            );
+        }
+        catch (error) {
+            console.log('Could not post announcement to course', error);
+            return res.status(500).json({ error: 'Database error' });
+        }
 
     }
 )
