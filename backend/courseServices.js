@@ -163,7 +163,7 @@ export async function getStudentsInCourse(courseID) {
     }
 
     try {
-        const res = await fetch(`/api/courses/students/${courseID}`);
+        const res = await fetch(`${API_URL}/courses/students/${courseID}`);
         if (!res.ok) {
             const errorData = await res.json();
             throw new Error(errorData.error || 'Failed to fetch list of students for course');
