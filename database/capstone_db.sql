@@ -75,8 +75,9 @@ CREATE TABLE Quizzes (
 CREATE TABLE Quiz_Questions (
     question_id INT AUTO_INCREMENT PRIMARY KEY,
     quiz_id INT,
-    question_text VARCHAR(255),
-    correct_answer VARCHAR(100),
+    question_text TEXT,
+    correct_answer TEXT,
+    score INT,
     isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );

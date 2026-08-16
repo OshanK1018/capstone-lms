@@ -93,9 +93,9 @@ app.post('/api/Users',
                 message: "Student " + name + " created",
                 student: {
                     id: successfulInsertion.insertId,
-                    name: name,
-                    email: email,
-                    role: role
+                    name: successfulInsertion.name,
+                    email: successfulInsertion.email,
+                    role: successfulInsertion.role
                 },
             });
         }
@@ -230,7 +230,7 @@ app.get('/api/courses/instructor/:instructorID',
         const instructorID = req.params.instructorID;
         const instructorIDasNum = Number(instructorID);
 
-        if (!Number.isInteger(instructorIDasNum) || instructorIDasNum <= 0) {
+        if (!instructorIDAsNum || instructorIDAsNum < 0 || !(Number.isInteger(instructorIDAsNum))) {
             return res.status(400).json({ error: "No valid instructor ID given" });
         }
 
@@ -302,7 +302,7 @@ app.post('/api/Courses',
 
         if (!title) return res.status(400).json("No course name given.");
         if (!formattedTerm) return res.status(400).json("No course term given.");
-        if (!instructorIDasNum || isNaN(instructorIDasNum)) 
+        if (!instructorIDAsNum || instructorIDAsNum < 0 || !(Number.isInteger(instructorIDAsNum))) 
             return res.status(400).json({ error: "No valid instructor ID given." });
 
         const currentUserID = req.user.user_id;
@@ -364,11 +364,10 @@ app.post('/api/Courses',
                     message: `Course ${title} created`,
                     course: {
                         course_id: successfullyCreatedCourse.insertId,
-                        title: title,
-                        term: term,
-                        start_date: startDate,
-                        end_date: endDate,
-                        instructor_id: instructorIDasNum
+                        title: successfullyCreatedCourse.title,
+                        start_date: successfullyCreatedCourse.start_date,
+                        end_date: successfullyCreatedCourse.end_date,
+                        instructor_id: successfullyCreatedCourse.instructor_id
                     }
                 }
             );
@@ -390,7 +389,8 @@ app.post('/api/Courses/exactDate',
         const instructorIDAsNum = Number(instructor_id);
 
         if (!title) return res.status(400).json("No course name given.");
-        if (!instructorIDAsNum) return res.status(400).json({ error: "No valid instructor ID given." });
+        if (!instructorIDAsNum || instructorIDAsNum < 0 || !(Number.isInteger(instructorIDAsNum))) 
+            return res.status(400).json({ error: "No valid instructor ID given." });
         if (!isValidYYYYMMDD(start_date)) 
             return res.status(400).json({ error: "Invalid or no start date given. Please use YYYY-MM-DD format." });
         if (!isValidYYYYMMDD(end_date)) 
@@ -431,16 +431,16 @@ app.post('/api/Courses/exactDate',
                 `INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES (?, ?, ?, ?)`,
                 [title, start_date, end_date, instructorIDAsNum] 
             );
-            return res.status(200).json(
+            return res.status(201).json(
                 {
                     success: true,
                     message: `Course ${title} created`,
                     course: {
                         course_id: successfullyCreatedCourse.insertId,
-                        title: title,
-                        start_date: start_date,
-                        end_date: end_date,
-                        instructor_id: instructorIDAsNum
+                        title: successfullyCreatedCourse.title,
+                        start_date: successfullyCreatedCourse.start_date,
+                        end_date: successfullyCreatedCourse.end_date,
+                        instructor_id: successfullyCreatedCourse.instructor_id
                     }
                 }
             );
@@ -457,7 +457,7 @@ app.get('/api/courses/students/:courseID',
         const courseID = req.params.courseID;
         const courseIDasNum = Number(courseID);
         
-        if (!Number.isInteger(courseIDasNum) || !Number.isInteger(courseIDasNum)) {
+        if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum))) {
             return res.status(400).json({ error: "No valid course ID given" });
         }
 
@@ -477,7 +477,7 @@ app.get('/api/courses/students/:courseID',
                 [courseIDasNum]
             );
 
-            if (studentsInCourse.length == 0) {
+            if (studentsInCourse.length === 0) {
                 return res.status(201).json(
                     {
                         success: true,
@@ -527,10 +527,10 @@ app.post('/api/enrollments/students/',
         const studentIDasNum = Number(student_id);
         const courseIDasNum = Number(course_id);
 
-        if (!studentIDasNum || !Number.isInteger(studentIDasNum)) {
+        if (!studentIDasNum || !(Number.isInteger(studentIDasNum)) || studentIDasNum < 0) {
             return res.status(400).json({ error: "Student ID not given or is not an integer." })
         }
-        if (!courseIDasNum || !Number.isInteger(courseIDasNum)) {
+        if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum))) {
             return res.status(400).json({ error: "Course ID not given or is not an integer." });
         }
 
@@ -559,17 +559,20 @@ app.post('/api/enrollments/students/',
                 `INSERT INTO Enrollments (student_id, course_id, enrolled_at) VALUES (?, ?, CURRENT_TIMESTAMP())`,
                 [studentIDasNum, courseIDasNum]
             );
-            return res.status(200).json(
-                {
-                    success: true,
-                    message: `Successfully enrolled student ${studentIDasNum} into course ${courseIDasNum}`,
-                    enrollment: {
-                        course: courseIDasNum,
-                        student: studentIDasNum,
-                        enrolled_at: 'just now'
+            if (successfulEnrollment.length === 0) {
+                return res.status(200).json(
+                    {
+                        success: true,
+                        message: `Successfully enrolled student ${studentIDasNum} into course ${courseIDasNum}`,
+                        enrollment: {
+                            enrollment_id: successfulEnrollment.insertId,
+                            course_id: successfulEnrollment.course_id,
+                            student_id: successfulEnrollment.student_id,
+                            enrolled_at: successfulEnrollment.enrolled_at
+                        }
                     }
-                }
-            );
+                );
+            }
         }
         catch (error) {
             console.error(`Could not enroll student with ID ${studentIDasNum} into course with ID ${courseIDasNum}`, error);
@@ -589,7 +592,9 @@ app.post('/api/Assignments',
         const assignmentLink = assignment_link?.trim();        
         const dueDate = due_date?.trim();
 
-        if (!courseIDasNum) return res.status(400).json({ error: 'No course ID given'});
+        
+        if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum))) 
+            return res.status(400).json({ error: 'No course ID given'});
         if (!maxPointsAsNum) maxPointsAsNum = 100;
         if (!dueDate) return res.status(400).json({ error: 'No due date given'});
         if (!title) return res.status(400).json({ error: 'No title given' });
@@ -654,11 +659,12 @@ app.post('/api/Assignments',
                     success: true,
                     message: `Successfully posted assignment to course ${courseIDasNum}`,
                     assignment: {
-                        title: title,
-                        due_date: dueDate,
-                        course_id: courseIDasNum,
-                        max_points: maxPointsAsNum,
-                        assignment_link: assignmentLink
+                        assignment_id: successfullyCreatedAssignment.insertId,
+                        title: successfullyCreatedAssignment.title,
+                        course_id: successfullyCreatedAssignment.course_id,
+                        due_date: successfullyCreatedAssignment.due_date,
+                        max_points: successfullyCreatedAssignment.maxPointsAsNum,
+                        assignment_link: successfullyCreatedAssignment.assignment_link
                     }
                 }
             );
@@ -679,7 +685,8 @@ app.post('/api/Announcements',
         title = title?.trim();
         message = message?.trim();
 
-        if (!courseIDasNum) return res.status(400).json({ error: 'Course ID given is not a number' });
+        if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum))) 
+            return res.status(400).json({ error: 'Course ID given is not a number' });
         if (!title && !message) return res.status(400).json(
             { error: `Announcement must have at least either a title or a message` }
         );
@@ -726,11 +733,13 @@ app.post('/api/Announcements',
             return res.status(201).json(
                 {
                     success: true,
+                    message: `Successfully posted announcement to course ${courseIDasNum}`,
                     assignment: {
-                        course_id: courseIDasNum,
-                        title: title,
-                        message: message,
-                        date_posted: 'just now'
+                        announcement_id: successfullyPostedAnnouncement.insertId,
+                        course_id: successfullyPostedAnnouncement.course_id,
+                        title: successfullyPostedAnnouncement.title,
+                        message: successfullyPostedAnnouncement.message,
+                        date_posted: successfullyPostedAnnouncement.date_posted
                     }
                 }
             );
@@ -740,6 +749,245 @@ app.post('/api/Announcements',
             return res.status(500).json({ error: 'Database error' });
         }
 
+    }
+)
+
+app.post('/api/Quizzes',
+    authenticateToken,
+    async (req, res) => {
+        let { course_id, title, due_date } = req.body;
+        const courseIDasNum = Number(course_id);
+        title = title?.trim();
+        const dueDate = due_date?.trim();
+        
+        const currentDay = new Date();
+        
+        if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum)))
+            return res.status(400).json({ error: "No valid course ID given to associate this quiz with"}); 
+        
+        if (!title) { title = "Untitled"; }
+        if (!dueDate) { return res.status(400).json({ error: "No date was given goofy" }); }
+
+        const [date, time] = dueDate.split(' ');
+        if (!isValidYYYYMMDD(date)) { return res.status(403).json({ error: "No valid date given please use YYYY-DD-MM" }); }
+        if (!isValidTime(time)) { return res.status(403).json({ error: "No valid time given please use HH:MM:SS" }); }
+        if (date < currentDay) {
+            return res.status(403).json({ error: "Date given is less than the current date" });
+        }
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+        if (currentUserRole !== 'admin' && currentUserRole !== 'instructor') {
+            return res.status(403).json({ error: 'Only admins and instructors can create quizzes' });
+        }
+        
+        let isActuallyYourCourse;
+        if (currentUserRole === 'admin') {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseIDasNum]
+            );
+        }
+        else {
+            [isActuallyYourCourse] = await connectionPool.query(
+                `SELECT course_id, instructor_id FROM Courses WHERE course_id = ? AND instructor_id = ? AND isArchived = 0`,
+                [courseIDasNum, currentUserID]
+            );
+        }
+        if (isActuallyYourCourse.length === 0)
+            return res.status(403).json({ error: `This course either doesn't exist or you're trying to post an assignment
+                                                  for a course that you aren't an instructor for.` });
+        
+
+        const [isActiveUser] = await connectionPool.query(
+            `SELECT user_id FROM Users WHERE user_id = ? AND (role = 'instructor' OR role = 'admin') AND isArchived = 0`,
+            [currentUserID]
+        );
+
+        try {
+            const [successfullyUploadedQuiz] = await connectionPool.query(
+                `INSERT INTO Quizzes (course_id, title, due_date) VALUES (?, ?, ?)`,
+                [courseIDasNum, title, dueDate]
+            );
+            return {
+                success: true,
+                message: `Successfully uploaded quiz to course ${courseIDasNum}`,
+                quiz: {
+                    quiz_id: successfullyUploadedQuiz.insertId,
+                    course_id: successfullyUploadedQuiz.course_id,
+                    title: successfullyUploadedQuiz.title,
+                    due_date: successfullyUploadedQuiz.due_date
+                }
+            }
+        }
+        catch (error) {
+            console.log("Could not upload quiz", error);
+            return res.status(500).json({ error: "Internal server error" });
+        }
+    }
+);
+
+app.post('/api/Quiz_Attempts',
+    async (req, res) => {
+        let { quiz_id, student_id, score, attempt_date } = req.body;
+        const quizIDasNum = Number(quiz_id);
+        const studentIDasNum = Number(student_id);
+        const scoreAsNum = Number(score);
+
+        if (!quizIDasNum || quizIDasNum < 0 || !(Number.isInteger(quizIDasNum)))
+            return res.status(400).json({ error: 'No valid quiz ID given' });
+        if (!studentIDasNum || studentIDasNum < 0 || !(Number.isInteger(studentIDasNum)))
+            return res.status(400).json({ error: 'No valid quiz ID given' });
+        if (!scoreAsNum || scoreAsNum < 0)
+            return res.status(400).json({ error: 'No valid score given' });
+        
+        const [isActiveQuiz] = await connectionPool.query(
+            `SELECT quiz_id FROM Quizzes WHERE quiz_id = ? AND isArchived = 0`,
+            [quizIDasNum]
+        );
+        if (isActiveQuiz.length === 0)
+            return res.status(403).json({ error: `Quiz with ${quizIDasNum} not found or is inactive` });
+        const [isActiveStudent] = await connectionPool.query(
+            `SELECT user_id FROM Users WHERE user_id = ? AND isArchived = 0`,
+            [studentIDasNum]
+        );
+        if (isActiveStudent.length === 0)
+            return res.status(403).json({ error: `Student with ${studentIDasNum} not found or is inactive` });
+        
+        try {
+            const [successfulQuizAttempt] = await connectionPool.query(
+                `INSERT INTO Quiz_Attempts (quiz_id, student_id, score, attempt_date) VALUES (?, ?, ?, CURRENT_TIMESTAMP())`,
+                [quizIDasNum, studentIDasNum, scoreAsNum] 
+            );
+            return {
+                success: true,
+                message: 'Successfully logged quiz attempt',
+                quiz_attempt: {
+                    attempt_id: successfulQuizAttempt.insertId,
+                    quiz_id: successfulQuizAttempt.quiz_id,
+                    student_id: successfulQuizAttempt.student_id,
+                    score: successfulQuizAttempt.score,
+                    attempt_date: successfulQuizAttempt.attempt_date
+                }
+            }
+        }
+        catch(error) {
+            console.log('Could not upload quiz attempt', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+
+    }
+);
+
+app.post('/api/Quiz_Questions',
+    authenticateToken,
+    async (req, res) => {
+        let { quiz_id, question_text, correct_answer, score } = req.body;
+        const quizIDasNum = Number(quiz_id);
+        question_text = question_text?.trim();
+        correct_answer = correct_answer?.trim();
+        const scoreAsNum = Number(score);
+
+        if (!quizIDasNum || quizIDasNum < 0 || !(Number.isInteger(quizIDasNum)))
+            return res.status(400).json({ error: 'No valid quiz ID given' });
+        if (!question_text) return res.status(400).json({ error: 'No question text given' });
+        if (scoreAsNum && scoreAsNum < 0) return res.status(400).json({ error: 'Score must be greater than 0' });
+        if (!scoreAsNum) scoreAsNum = 'NULL';
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+        if (currentUserRole !== 'admin' && currentUserRole !== 'instructor') {
+            return res.status(403).json({ error: 'Only admins and instructors can create quiz questions' });
+        }
+
+        const [isActiveQuiz] = await connectionPool.query(
+            `SELECT quiz_id FROM Quizzes WHERE quiz_id = ? AND isArchived = 0`,
+            [quizIDasNum]
+        );
+        if (isActiveQuiz.length === 0)
+            return res.status(403).json({ error: `Quiz with ${quizIDasNum} not found or is inactive` });
+
+        try {
+            const [successfullyCreatedQuizQuestion] = await connectionPool.query(
+                `INSERT INTO Quiz_Questions (quiz_id, question_text, correct_answer, score) VALUES (?, ?, ?, ?)`,
+                [quizIDasNum, question_text, correct_answer, scoreAsNum]
+            );
+            return {
+                success: true,
+                message: `Successfully added quiz question to quiz with ID ${quizIDasNum}`,
+                quiz_question: {
+                    question_id: successfullyCreatedQuizQuestion.insertId,
+                    quiz_id: successfullyCreatedQuizQuestion.quiz_id,
+                    question_text: successfullyCreatedQuizQuestion.question_text,
+                    correct_answer: successfullyCreatedQuizQuestion.correct_answer,
+                    score: successfullyCreatedQuizQuestion.score
+                }
+            }
+        }
+        catch (error) {
+            console.log(`Could not add quiz question to quiz ${quizIDasNum}`, error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+)
+
+app.post('/api/Submissions',
+    async(req, res) => {
+        let { assignment_id, student_id, submission_date, submission_link, score, feedback } = req.body;
+        const assignmentIDasNum = Number(assignment_id);
+        const studentIDasNum = Number(student_id);
+        const scoreAsNum = Number(score);
+        submission_link = submission_link?.trim();
+        feedback = feedback?.trim();
+
+        if (!assignmentIDasNum || assignmentIDasNum < 0 || !(Number.isInteger(assignmentIDasNum)))
+            return res.status(400).json({ error: "No valid assignment ID given" });
+        if (!studentIDasNum || studentIDasNum < 0 || !(Number.isInteger(studentIDasNum)))
+            return res.status(400).json({ error: 'No valid quiz ID given' });
+        if (score && score < 0)
+            return res.status(400).json({ error: "Score must be greater than 0" });
+        if (!score) score = 'NULL';
+        if (!submission_link) return res.status(400).json({ error: "No submission link given" });
+        if (!feedback) feedback = 'NULL';
+
+        const [isActiveStudent] = await connectionPool.query(
+            `SELECT user_id FROM Users WHERE user_id = ? AND isArchived = 0`,
+            [studentIDasNum]
+        );
+        if (isActiveStudent.length === 0)
+            return res.status(403).json({ error: `Student with ${studentIDasNum} not found or is inactive` });
+        const [isActiveAssignment] = await connectionPool.query(
+            `SELECT assignment_id FROM Assignments WHERE assignment_id = ? AND isArchived = 0`,
+            [assignmentIDasNum]
+        );
+        if (isActiveAssignment.length === 0)
+            return res.status(403).json({ error: `Assignment with ${assignmentIDasNum} not found or is inactive` });
+
+
+        try {
+            const [successfullyPostedSubmission] = await connectionPool.query(
+                `INSERT INTO Submissions (assignment_id, student_id, submission_date, submission_link, score, feedback)
+                 VALUES (?, ?, CURRENT_TIMESTAMP(), ?, ?, ?)`,
+                 [assignmentIDasNum, studentIDasNum, submission_link, scoreAsNum, feedback]
+            );
+            return {
+                success: true,
+                message: `Successfully created Submission to assignment ${assignmentIDasNum}`,
+                submission: {
+                    submission_id: successfullyPostedSubmission.insertId,
+                    assignment_id: successfullyPostedSubmission.assignment_id,
+                    student_id: successfullyPostedSubmission.student_id,
+                    submission_date: successfullyPostedSubmission.submission_date,
+                    submission_link: successfullyPostedSubmission.submission_link,
+                    score: successfullyPostedSubmission.score,
+                    feedback: successfullyPostedSubmission.feedback
+                }
+            }
+        }
+        catch (error) {
+            console.log(`Could not create submission to assignment ${assignmentIDasNum}`, error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
     }
 )
 
