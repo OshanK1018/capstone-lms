@@ -1,5 +1,5 @@
 import "./CourseDetail.css";
-import { useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 // Temporary frontend data until backend API integration is connected
 import {
@@ -8,6 +8,9 @@ import {
     upcomingQuizzes,
     announcements,
 } from "../../data/studentData";
+
+const assignmentSubmissionsKey = "assignmentSubmissions";
+const quizAttemptsKey = "quizAttempts";
 
 function getDate(dateText) {
     return new Date(`${dateText}T00:00:00`);
@@ -34,13 +37,25 @@ function sortByNewestDate(items) {
 
 function CourseDetail() {
     const { courseId } = useParams();
+    const navigate = useNavigate();
 
     // Temporary browser storage
-    // Replace with the student's enrolled courses from the backend API
+    // Replace this with the student's enrolled courses from the backend API
     const savedCourses = localStorage.getItem("studentCourses");
+
     const studentCourses = savedCourses
         ? JSON.parse(savedCourses)
         : enrolledCourses;
+
+    // Temporary browser storage
+    // Replace these reads with GET requests to the backend API
+    const assignmentSubmissions = JSON.parse(
+        localStorage.getItem(assignmentSubmissionsKey) || "[]"
+    );
+
+    const quizAttempts = JSON.parse(
+        localStorage.getItem(quizAttemptsKey) || "[]"
+    );
 
     // Integration point: fetch the logged in student's enrolled courses from the backend API
     const selectedCourse = studentCourses.find(
@@ -67,29 +82,62 @@ function CourseDetail() {
         (quiz) => quiz.courseCode === selectedCourse.code
     );
 
+    function getAssignmentSubmission(assignmentId) {
+        return assignmentSubmissions.find(
+            (submission) =>
+                String(submission.assignmentId) ===
+                    String(assignmentId) &&
+                String(submission.courseId) === courseId
+        );
+    }
+
+    function getQuizAttempt(quizId) {
+        return quizAttempts.find(
+            (attempt) =>
+                String(attempt.quizId) === String(quizId) &&
+                String(attempt.courseId) === courseId
+        );
+    }
+
     const allCourseWork = [
         ...courseAssignments.map((assignment) => ({
             ...assignment,
             type: "Assignment",
+            completed: Boolean(
+                getAssignmentSubmission(assignment.id)
+            ),
         })),
-        ...courseQuizzes.map((quiz) => ({
-            ...quiz,
-            type: "Quiz",
-        })),
+
+        ...courseQuizzes.map((quiz) => {
+            const attempt = getQuizAttempt(quiz.id);
+
+            return {
+                ...quiz,
+                type: "Quiz",
+                completed: attempt?.status === "Completed",
+                inProgress: attempt?.status === "In Progress",
+            };
+        }),
     ];
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const upcomingWork = sortByDueDate(
+    const toDoWork = sortByDueDate(
         allCourseWork.filter((workItem) => {
-            return getDate(workItem.dueDate) >= today;
+            return (
+                getDate(workItem.dueDate) >= today &&
+                !workItem.completed
+            );
         })
     );
 
     const overdueWork = sortByDueDate(
         allCourseWork.filter((workItem) => {
-            return getDate(workItem.dueDate) < today;
+            return (
+                getDate(workItem.dueDate) < today &&
+                !workItem.completed
+            );
         })
     );
 
@@ -99,6 +147,20 @@ function CourseDetail() {
                 announcement.courseCode === selectedCourse.code
         )
     );
+
+    function handleOpenWork(workItem) {
+        if (workItem.type === "Assignment") {
+            navigate(
+                `/student/course/${courseId}/assignments/${workItem.id}`
+            );
+        }
+
+        if (workItem.type === "Quiz") {
+            navigate(
+                `/student/course/${courseId}/quizzes/${workItem.id}`
+            );
+        }
+    }
 
     return (
         <main className="course-home">
@@ -113,9 +175,13 @@ function CourseDetail() {
                                 key={announcement.id}
                             >
                                 <span>
-                                    {formatDisplayDate(announcement.date)}
+                                    {formatDisplayDate(
+                                        announcement.date
+                                    )}
                                 </span>
+
                                 <h3>{announcement.courseCode}</h3>
+
                                 <p>{announcement.message}</p>
                             </div>
                         ))
@@ -128,40 +194,55 @@ function CourseDetail() {
 
                 <div className="course-home__column">
                     <section className="course-home__card">
-                        <h2>Upcoming Work</h2>
+                        <h2>To Do</h2>
 
-                        {upcomingWork.length > 0 ? (
-                            upcomingWork.map((workItem) => (
-                                <div
+                        {toDoWork.length > 0 ? (
+                            toDoWork.map((workItem) => (
+                                <Link
+                                    to={
+                                        workItem.type === "Assignment"
+                                            ? `/student/course/${courseId}/assignments/${workItem.id}`
+                                            : `/student/course/${courseId}/quizzes/${workItem.id}`
+                                    }
                                     className="course-work-item"
                                     key={`${workItem.type}-${workItem.id}`}
                                 >
                                     <div>
                                         <h3>{workItem.title}</h3>
-                                        <p>{workItem.type}</p>
+                                        <p>
+                                            {workItem.type}
+                                            {workItem.inProgress
+                                                ? " · In Progress"
+                                                : ""}
+                                        </p>
                                     </div>
 
                                     <span>
                                         Due{" "}
-                                        {formatDisplayDate(workItem.dueDate)}
+                                        {formatDisplayDate(
+                                            workItem.dueDate
+                                        )}
                                     </span>
-                                </div>
+                                </Link>
                             ))
                         ) : (
                             <p className="course-home__empty">
-                                No upcoming work for this course.
+                                No work to do for this course.
                             </p>
                         )}
                     </section>
 
                     <section className="course-home__card">
-                        <h2>Overdue Work</h2>
+                        <h2>Overdue</h2>
 
                         {overdueWork.length > 0 ? (
                             overdueWork.map((workItem) => (
                                 <div
                                     className="course-work-item"
                                     key={`${workItem.type}-${workItem.id}`}
+                                    onClick={() =>
+                                        handleOpenWork(workItem)
+                                    }
                                 >
                                     <div>
                                         <h3>{workItem.title}</h3>
@@ -170,7 +251,9 @@ function CourseDetail() {
 
                                     <span className="course-work-item__overdue">
                                         Due{" "}
-                                        {formatDisplayDate(workItem.dueDate)}
+                                        {formatDisplayDate(
+                                            workItem.dueDate
+                                        )}
                                     </span>
                                 </div>
                             ))

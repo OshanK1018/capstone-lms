@@ -13,7 +13,9 @@ import StudentLayout from "./layouts/StudentLayout";
 import CourseLayout from "./layouts/CourseLayout";
 import StudentMaterials from "./pages/student/StudentMaterials";
 import StudentAssignments from "./pages/student/StudentAssignments";
+import StudentAssignmentSubmission from "./pages/student/StudentAssignmentSubmission";
 import StudentQuizzes from "./pages/student/StudentQuizzes";
+import StudentQuizTaking from "./pages/student/StudentQuizTaking";
 import StudentGrades from "./pages/student/StudentGrades";
 
 // Instructor page imports
@@ -33,48 +35,18 @@ function App() {
       <Route path="/login" element={<Login />} />
 
       {/* Student routes */}
-      <Route
-        path="/student"
-        element={<StudentLayout />}
-      >
-        <Route
-          path="dashboard"
-          element={<StudentDashboard />}
-        />
+      <Route path="/student" element={<StudentLayout />}>
+        <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="enroll" element={<CourseEnrollment />} />
 
-        <Route
-          path="enroll"
-          element={<CourseEnrollment />}
-        />
-
-        <Route
-          path="course/:courseId"
-          element={<CourseLayout />}
-        >
-          <Route
-            index
-            element={<CourseDetail />}
-          />
-
-          <Route
-            path="materials"
-            element={<StudentMaterials />}
-          />
-
-          <Route
-            path="assignments"
-            element={<StudentAssignments />}
-          />
-
-          <Route
-            path="quizzes"
-            element={<StudentQuizzes />}
-          />
-
-          <Route
-            path="grades"
-            element={<StudentGrades />}
-          />
+        <Route path="course/:courseId" element={<CourseLayout />}>
+          <Route index element={<CourseDetail />} />
+          <Route path="materials" element={<StudentMaterials />} />
+          <Route path="assignments" element={<StudentAssignments />} />
+          <Route path="assignments/:assignmentId" element={<StudentAssignmentSubmission />} />
+          <Route path="quizzes" element={<StudentQuizzes />} />
+          <Route path="quizzes/:quizId" element={<StudentQuizTaking />} />
+          <Route path="grades" element={<StudentGrades />} />
         </Route>
       </Route>
 

@@ -1,12 +1,14 @@
 import "./CoursePages.css";
 import "./StudentAssignments.css";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-// Temporary frontend data until course API/database integration is connected
+// Temporary frontend data until backend API integration is connected
 import {
     enrolledCourses,
     upcomingAssignments,
 } from "../../data/studentData";
+
+const assignmentSubmissionsKey = "assignmentSubmissions";
 
 function getDate(dateText) {
     return new Date(`${dateText}T00:00:00`);
@@ -19,6 +21,13 @@ function formatDisplayDate(dateText) {
     });
 }
 
+function isAssignmentOverdue(dueDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return getDate(dueDate) < today;
+}
+
 function sortByDueDate(items) {
     return [...items].sort((firstItem, secondItem) => {
         return getDate(firstItem.dueDate) - getDate(secondItem.dueDate);
@@ -27,25 +36,57 @@ function sortByDueDate(items) {
 
 function StudentAssignments() {
     const { courseId } = useParams();
+    const navigate = useNavigate();
 
-    // Integration point: the backend should return assignments for the selected course
-    const selectedCourse = enrolledCourses.find(
+    // Temporary browser storage
+    // Replace this with enrolled course data returned by the backend API
+    const savedCourses = localStorage.getItem("studentCourses");
+
+    const studentCourses = savedCourses
+        ? JSON.parse(savedCourses)
+        : enrolledCourses;
+
+    // Temporary mock lookup
+    // Later the backend will verify that the student has access to this course
+    const selectedCourse = studentCourses.find(
         (course) => String(course.id) === courseId
     );
 
+    // Temporary mock assignment data
+    // Later request assignments for this course from the backend API
     const assignments = sortByDueDate(
         upcomingAssignments.filter(
             (assignment) => assignment.courseCode === selectedCourse?.code
         )
     );
 
-    // Placeholder until assignment detail pages are connected
-    function handleViewAssignment(assignmentTitle) {
-        window.alert(`${assignmentTitle} details will open when assignment pages are connected.`);
+    // Temporary browser storage
+    // Replace this with assignment submission data from the backend API
+    const savedSubmissions = JSON.parse(
+        localStorage.getItem(assignmentSubmissionsKey) || "[]"
+    );
+
+    function getAssignmentStatus(assignment) {
+        const submission = savedSubmissions.find(
+            (savedSubmission) =>
+                String(savedSubmission.assignmentId) ===
+                    String(assignment.id) &&
+                String(savedSubmission.courseId) === courseId
+        );
+
+        if (submission) {
+            return "Submitted";
+        }
+
+        if (isAssignmentOverdue(assignment.dueDate)) {
+            return "Overdue";
+        }
+
+        return "Not Submitted";
     }
-    // Placeholder until real file upload/submission functionality is connected
-    function handleSubmitAssignment(assignmentTitle) {
-        window.alert(`${assignmentTitle} submission will open when upload functionality is connected.`);
+
+    function handleOpenAssignment(assignmentId) {
+        navigate(`/student/course/${courseId}/assignments/${assignmentId}`);
     }
 
     return (
@@ -55,29 +96,45 @@ function StudentAssignments() {
 
                 {assignments.length > 0 ? (
                     assignments.map((assignment) => (
-                        <div className="assignment-row" key={assignment.id}>
-                            <div>
+                        <div
+                            className="assignment-row"
+                            key={assignment.id}
+                        >
+                            <div className="assignment-row__info">
                                 <h2>{assignment.title}</h2>
-                                <p>Due {formatDisplayDate(assignment.dueDate)}</p>
                             </div>
 
-                            <div className="assignment-row__actions">
-                                <button
-                                    type="button"
-                                    className="assignment-row__button assignment-row__button--secondary"
-                                    onClick={() => handleViewAssignment(assignment.title)}
-                                >
-                                    View
-                                </button>
+                            <div className="assignment-row__details">
+                                <div>
+                                    <span>Due Date</span>
+                                    <strong>
+                                        {formatDisplayDate(
+                                            assignment.dueDate
+                                        )}
+                                    </strong>
+                                </div>
 
-                                <button
-                                    type="button"
-                                    className="assignment-row__button"
-                                    onClick={() => handleSubmitAssignment(assignment.title)}
-                                >
-                                    Submit
-                                </button>
+                                <div>
+                                    <span>Status</span>
+                                    <strong>
+                                        {getAssignmentStatus(
+                                            assignment
+                                        )}
+                                    </strong>
+                                </div>
                             </div>
+
+                            <button
+                                type="button"
+                                className="assignment-row__button"
+                                onClick={() =>
+                                    handleOpenAssignment(
+                                        assignment.id
+                                    )
+                                }
+                            >
+                                Open
+                            </button>
                         </div>
                     ))
                 ) : (
