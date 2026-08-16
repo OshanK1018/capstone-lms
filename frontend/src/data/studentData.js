@@ -1,5 +1,5 @@
 // Temporary student data
-// This will be replaced with API/database data during backend integration
+// This will be replaced with backend API data during backend integration
 
 export const studentProfile = {
     name: "Olivia",
@@ -250,159 +250,317 @@ export const courseCatalog = [
         availability: "Open",
     },
 ];
-
 export const upcomingAssignments = [
     {
         id: 1,
         title: "Integration Problem Set",
         courseCode: "MATH 201",
-        dueDate: "2026-07-20",
+        dueDate: "2026-08-20",
         status: "Incomplete",
+        description:
+            "Complete the integration problems from the assigned worksheet and upload your completed work.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Integration_Problem_Set.pdf",
+            },
+            {
+                id: 2,
+                fileName: "Integration_Formula_Sheet.pdf",
+            },
+        ],
     },
     {
         id: 2,
         title: "Lab Report #2",
         courseCode: "PHYS 150",
-        dueDate: "2026-07-24",
+        dueDate: "2026-08-24",
         status: "Incomplete",
+        description:
+            "Complete Lab Report #2 using your observations and results from the lab experiment.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Lab_Report_2_Instructions.pdf",
+            },
+        ],
     },
     {
         id: 3,
         title: "Discussion Post: Shakespeare Reading",
         courseCode: "ENG 101",
-        dueDate: "2026-07-25",
+        dueDate: "2026-08-25",
         status: "Incomplete",
+        description:
+            "Write a response to the assigned Shakespeare reading and support your ideas with examples from the text.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Shakespeare_Reading.pdf",
+            },
+        ],
     },
     {
         id: 4,
         title: "Essay #2 Final Draft",
         courseCode: "ENG 101",
-        dueDate: "2026-08-06",
+        dueDate: "2026-07-28",
         status: "Incomplete",
+        description:
+            "Submit the final revised version of Essay #2.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Essay_2_Instructions.pdf",
+            },
+        ],
     },
     {
         id: 5,
         title: "Derivative Practice Worksheet",
         courseCode: "MATH 201",
-        dueDate: "2026-08-08",
+        dueDate: "2026-07-28",
         status: "Incomplete",
+        description:
+            "Complete all derivative problems on the practice worksheet and upload your work.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Derivative_Practice_Worksheet.pdf",
+            },
+        ],
     },
     {
         id: 6,
         title: "Physics Lab Reflection",
         courseCode: "PHYS 150",
-        dueDate: "2026-08-10",
+        dueDate: "2026-08-28",
         status: "Incomplete",
+        description:
+            "Write a short reflection about the lab activity and what you learned from the experiment.",
+        attachments: [],
     },
     {
         id: 7,
         title: "Reading Response: Poetry Unit",
         courseCode: "ENG 101",
-        dueDate: "2026-08-12",
+        dueDate: "2026-08-29",
         status: "Incomplete",
+        description:
+            "Write a response to the assigned poems and discuss one major theme from the reading.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Poetry_Reading.pdf",
+            },
+        ],
     },
     {
         id: 8,
         title: "Forces and Motion Problem Set",
         courseCode: "PHYS 150",
-        dueDate: "2026-08-14",
+        dueDate: "2026-08-29",
         status: "Incomplete",
+        description:
+            "Complete the assigned forces and motion problems and show your calculations.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Forces_and_Motion_Problems.pdf",
+            },
+        ],
     },
     {
         id: 9,
         title: "Programming Exercise 1",
         courseCode: "CSCI 127",
-        dueDate: "2026-08-16",
+        dueDate: "2026-08-29",
         status: "Incomplete",
+        description:
+            "Complete Programming Exercise 1 and upload your source code file.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Programming_Exercise_1.pdf",
+            },
+        ],
     },
     {
         id: 10,
         title: "Primary Source Reflection",
         courseCode: "HIST 110",
-        dueDate: "2026-08-18",
+        dueDate: "2026-08-29",
         status: "Incomplete",
+        description:
+            "Write a short reflection analyzing the assigned primary source.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Primary_Source.pdf",
+            },
+        ],
     },
     {
         id: 11,
         title: "Cell Structure Worksheet",
         courseCode: "BIO 120",
-        dueDate: "2026-08-20",
+        dueDate: "2026-08-30",
         status: "Incomplete",
+        description:
+            "Complete the cell structure worksheet and upload the finished assignment.",
+        attachments: [
+            {
+                id: 1,
+                fileName: "Cell_Structure_Worksheet.pdf",
+            },
+        ],
     },
 ];
 
 export const upcomingQuizzes = [
     {
         id: 1,
+        courseId: 2,
         title: "Quiz 3: Limits and Continuity",
         courseCode: "MATH 201",
-        dueDate: "2026-07-22",
-        timeLimit: "30 min",
+        dueDate: "2026-08-21",
+        timeLimit: 30,
         status: "Upcoming",
     },
     {
         id: 2,
+        courseId: 1,
         title: "Reading Check: Shakespeare",
         courseCode: "ENG 101",
-        dueDate: "2026-07-26",
-        timeLimit: "20 min",
+        dueDate: "2026-08-22",
+        timeLimit: 20,
         status: "Upcoming",
     },
     {
         id: 3,
+        courseId: 3,
         title: "Quiz 2: Newton's Laws",
         courseCode: "PHYS 150",
-        dueDate: "2026-08-05",
-        timeLimit: "25 min",
+        dueDate: "2026-08-24",
+        timeLimit: 25,
         status: "Upcoming",
     },
     {
         id: 4,
+        courseId: 1,
         title: "Grammar and Sentence Structure Quiz",
         courseCode: "ENG 101",
-        dueDate: "2026-08-07",
-        timeLimit: "15 min",
+        dueDate: "2026-08-24",
+        timeLimit: 15,
         status: "Upcoming",
     },
     {
         id: 5,
+        courseId: 2,
         title: "Quiz 4: Derivatives",
         courseCode: "MATH 201",
-        dueDate: "2026-08-11",
-        timeLimit: "35 min",
+        dueDate: "2026-08-25",
+        timeLimit: 35,
         status: "Upcoming",
     },
     {
         id: 6,
+        courseId: 3,
         title: "Lab Safety Review Quiz",
         courseCode: "PHYS 150",
-        dueDate: "2026-08-13",
-        timeLimit: "20 min",
+        dueDate: "2026-08-25",
+        timeLimit: 20,
         status: "Upcoming",
     },
     {
         id: 7,
+        courseId: 4,
         title: "Programming Basics Quiz",
         courseCode: "CSCI 127",
-        dueDate: "2026-08-17",
-        timeLimit: "25 min",
+        dueDate: "2026-08-27",
+        timeLimit: 25,
         status: "Upcoming",
     },
     {
         id: 8,
+        courseId: 8,
         title: "World History Map Quiz",
         courseCode: "HIST 110",
-        dueDate: "2026-08-21",
-        timeLimit: "20 min",
+        dueDate: "2026-08-28",
+        timeLimit: 20,
         status: "Upcoming",
     },
     {
         id: 9,
+        courseId: 6,
         title: "Biology Vocabulary Check",
         courseCode: "BIO 120",
-        dueDate: "2026-08-24",
-        timeLimit: "15 min",
+        dueDate: "2026-08-28",
+        timeLimit: 15,
         status: "Upcoming",
+    },
+];
+
+export const quizQuestions = [
+    {
+        id: 1,
+        quizId: 1,
+        question: "Which statement best describes a limit?",
+        choices: [
+            { id: 1, text: "The highest value of a function" },
+            { id: 2, text: "The value a function approaches" },
+            { id: 3, text: "The derivative of a function" },
+            { id: 4, text: "The starting value of a function" },
+        ],
+        correctAnswer: 2,
+    },
+    {
+        id: 2,
+        quizId: 1,
+        question: "A function is continuous at a point when:",
+        choices: [
+            { id: 1, text: "The function has no variables" },
+            { id: 2, text: "The function is always increasing" },
+            { id: 3, text: "The limit equals the function value" },
+            { id: 4, text: "The function has a maximum value" },
+        ],
+        correctAnswer: 3,
+    },
+    {
+        id: 3,
+        quizId: 1,
+        question: "Which notation represents a limit?",
+        choices: [
+            { id: 1, text: "lim" },
+            { id: 2, text: "sin" },
+            { id: 3, text: "log" },
+            { id: 4, text: "avg" },
+        ],
+        correctAnswer: 1,
+    },
+    {
+        id: 4,
+        quizId: 1,
+        question: "If a function approaches the same value from both sides, then:",
+        choices: [
+            { id: 1, text: "The limit may exist" },
+            { id: 2, text: "The function must equal zero" },
+            { id: 3, text: "The function is undefined everywhere" },
+            { id: 4, text: "The function has no domain" },
+        ],
+        correctAnswer: 1,
+    },
+    {
+        id: 5,
+        quizId: 1,
+        question: "Which situation can cause a function to be discontinuous?",
+        choices: [
+            { id: 1, text: "A hole in the graph" },
+            { id: 2, text: "A positive slope" },
+            { id: 3, text: "A negative slope" },
+            { id: 4, text: "A constant value" },
+        ],
+        correctAnswer: 1,
     },
 ];
 

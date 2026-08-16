@@ -12,6 +12,9 @@ import {
     recentGrades,
 } from "../../data/studentData";
 
+const assignmentSubmissionsKey = "assignmentSubmissions";
+const quizAttemptsKey = "quizAttempts";
+
 function getDate(dateText) {
     return new Date(`${dateText}T00:00:00`);
 }
@@ -20,6 +23,12 @@ function formatDisplayDate(dateText) {
     return getDate(dateText).toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
+    });
+}
+
+function sortByDueDate(items) {
+    return [...items].sort((firstItem, secondItem) => {
+        return getDate(firstItem.dueDate) - getDate(secondItem.dueDate);
     });
 }
 
@@ -46,6 +55,16 @@ function StudentDashboard() {
         ? JSON.parse(savedCourses)
         : enrolledCourses;
 
+    // Temporary browser storage
+    // Replace these reads with GET requests to the backend API
+    const assignmentSubmissions = JSON.parse(
+        localStorage.getItem(assignmentSubmissionsKey) || "[]"
+    );
+
+    const quizAttempts = JSON.parse(
+        localStorage.getItem(quizAttemptsKey) || "[]"
+    );
+
     // Integration point: dashboard data will later be fetched from the backend API for the logged in student's enrolled courses
     const studentCourseCodes = studentCourses.map((course) => course.code);
 
@@ -64,6 +83,58 @@ function StudentDashboard() {
     const dashboardGrades = recentGrades.filter((grade) =>
         studentCourseCodes.includes(grade.courseCode)
     );
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dashboardToDo = sortByDueDate([
+        ...dashboardAssignments
+            .filter((assignment) => {
+                const course = studentCourses.find(
+                    (course) => course.code === assignment.courseCode
+                );
+
+                const submitted = assignmentSubmissions.find(
+                    (submission) =>
+                        String(submission.assignmentId) === String(assignment.id) &&
+                        String(submission.courseId) === String(course?.id)
+                );
+
+                return getDate(assignment.dueDate) >= today && !submitted;
+            })
+            .map((assignment) => ({
+                ...assignment,
+                type: "Assignment",
+                courseId: studentCourses.find(
+                    (course) => course.code === assignment.courseCode
+                )?.id,
+            })),
+
+        ...dashboardQuizzes
+            .filter((quiz) => {
+                const course = studentCourses.find(
+                    (course) => course.code === quiz.courseCode
+                );
+
+                const attempt = quizAttempts.find(
+                    (attempt) =>
+                        String(attempt.quizId) === String(quiz.id) &&
+                        String(attempt.courseId) === String(course?.id)
+                );
+
+                return (
+                    getDate(quiz.dueDate) >= today &&
+                    attempt?.status !== "Completed"
+                );
+            })
+            .map((quiz) => ({
+                ...quiz,
+                type: "Quiz",
+                courseId: studentCourses.find(
+                    (course) => course.code === quiz.courseCode
+                )?.id,
+            })),
+    ]);
 
     return (
         <main className="dashboard">
@@ -164,30 +235,37 @@ function StudentDashboard() {
                     </section>
 
                     <section className="dashboard__card">
-                        <h2>Upcoming Assignments</h2>
+                        <h2>To Do</h2>
 
-                        {dashboardAssignments.length > 0 ? (
-                            dashboardAssignments
+                        {dashboardToDo.length > 0 ? (
+                            dashboardToDo
                                 .slice(0, 4)
-                                .map((assignment) => (
-                                    <div
+                                .map((workItem) => (
+                                    <Link
+                                        to={
+                                            workItem.type === "Assignment"
+                                                ? `/student/course/${workItem.courseId}/assignments/${workItem.id}`
+                                                : `/student/course/${workItem.courseId}/quizzes/${workItem.id}`
+                                        }
                                         className="assignment-item"
-                                        key={assignment.id}
+                                        key={`${workItem.type}-${workItem.id}`}
                                     >
                                         <div>
-                                            <h3>{assignment.title}</h3>
-                                            <p>{assignment.courseCode}</p>
+                                            <h3>{workItem.title}</h3>
+                                            <p>
+                                                {workItem.courseCode} · {workItem.type}
+                                            </p>
                                         </div>
 
                                         <span className="assignment-item__due">
-                                            Due {formatDisplayDate(assignment.dueDate)}
+                                            Due {formatDisplayDate(workItem.dueDate)}
                                         </span>
-                                    </div>
+                                    </Link>
                                 ))
                         ) : (
                             <EmptyState
-                                title="No upcoming assignments"
-                                message="Assignments will appear here after you enroll in a course"
+                                title="Nothing to do"
+                                message="You have no upcoming work to complete"
                             />
                         )}
                     </section>

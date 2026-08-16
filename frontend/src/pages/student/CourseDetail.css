@@ -85,6 +85,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 18px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .course-work-item h3 {
@@ -115,6 +118,14 @@
 .course-work-item__overdue {
     background: #fee2e2;
     color: #b91c1c;
+}
+
+.course-work-item:hover {
+    transform: translateX(1px);
+}
+
+.course-work-item:hover h3 {
+    color: #3d7dde;
 }
 
 .course-home__empty {
