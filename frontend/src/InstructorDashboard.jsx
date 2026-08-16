@@ -1,8 +1,17 @@
 import "./InstructorDashboard.css";
 
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import InstructorSidebar from "./components/InstructorSidebar";
+
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesWithInstructor,
+} from "../../backend/instructorServices.js";
 
 // Icons used inside the dashboard content.
 import {
@@ -12,35 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 
-// Temporary course data until the backend is connected.
-const courses = [
-  {
-    id: 1,
-    code: "CSCI 510",
-    title: "Web Application Development",
-    students: 32,
-    assignments: 6,
-    color: "#2563eb",
-  },
-  {
-    id: 2,
-    code: "CSCI 633",
-    title: "Software Engineering",
-    students: 28,
-    assignments: 4,
-    color: "#7c3aed",
-  },
-  {
-    id: 3,
-    code: "CSCI 721",
-    title: "Artificial Intelligence",
-    students: 24,
-    assignments: 5,
-    color: "#059669",
-  },
-];
-
-// Temporary task data until the backend is connected.
+// Temporary task data until the backend service is connected.
 const upcomingTasks = [
   {
     id: 1,
@@ -62,8 +43,183 @@ const upcomingTasks = [
   },
 ];
 
+// Temporary values until assignment/submission
+// dashboard services are available.
+const temporaryAssignmentCount = 15;
+const temporaryNeedsGrading = 12;
+
+const courseColors = [
+  "#2563eb",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#dc2626",
+];
+
+// Makes backend course data easier for the
+// existing frontend layout to use.
+function normalizeCourse(course, index) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.courseCode ??
+      course.course_code ??
+      `COURSE ${index + 1}`,
+
+    title:
+      course.title ??
+      course.courseName ??
+      course.course_name ??
+      "Untitled Course",
+
+    students:
+      course.students ??
+      course.studentCount ??
+      course.student_count ??
+      course.total_students ??
+      0,
+
+    assignments:
+      course.assignments ??
+      course.assignmentCount ??
+      course.assignment_count ??
+      0,
+
+    color:
+      course.color ??
+      courseColors[index % courseColors.length],
+  };
+}
+
 function InstructorDashboard() {
   const navigate = useNavigate();
+
+  const [instructor, setInstructor] = useState({
+    id: null,
+    name: "Instructor",
+    role: "Instructor",
+  });
+
+  const [courses, setCourses] = useState([]);
+
+  const [courseCount, setCourseCount] =
+    useState(0);
+
+  const [totalStudents, setTotalStudents] =
+    useState(0);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [dashboardError, setDashboardError] =
+    useState("");
+
+  useEffect(() => {
+    async function loadDashboard() {
+      setIsLoading(true);
+      setDashboardError("");
+
+      // Get the currently logged-in user.
+      const userResult =
+        await getCurrentUser();
+
+      if (!userResult.success) {
+        setDashboardError(
+          userResult.error ||
+            "Unable to load instructor information."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const user = userResult.user;
+
+      const instructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      const instructorName =
+        user?.name ??
+        user?.full_name ??
+        user?.fullName ??
+        "Instructor";
+
+      const instructorRole =
+        user?.role ??
+        user?.user_role ??
+        "Instructor";
+
+      setInstructor({
+        id: instructorID,
+        name: instructorName,
+        role: instructorRole,
+      });
+
+      if (!instructorID) {
+        setDashboardError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      // Load courses assigned to the instructor.
+      const coursesResult =
+        await getCoursesWithInstructor(
+          instructorID
+        );
+
+      if (!coursesResult.success) {
+        setDashboardError(
+          coursesResult.error ||
+            "Unable to load instructor courses."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        Array.isArray(coursesResult.courses)
+          ? coursesResult.courses
+          : [];
+
+      const normalizedCourses =
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(course, index)
+        );
+
+      setCourses(normalizedCourses);
+
+      setCourseCount(
+        Number(
+          coursesResult.courses_count ??
+            normalizedCourses.length
+        )
+      );
+
+      setTotalStudents(
+        Number(
+          coursesResult.total_students ?? 0
+        )
+      );
+
+      setIsLoading(false);
+    }
+
+    loadDashboard();
+  }, []);
 
   // Opens the instructor courses page.
   const handleCreateCourse = () => {
@@ -75,41 +231,80 @@ function InstructorDashboard() {
     navigate(path);
   };
 
-  // Sends the selected course to the Courses page.
+  // Opens the selected course management page.
   const handleManageCourse = (course) => {
-    navigate("/instructor/courses", {
-      state: { selectedCourse: course },
-    });
+    if (!course.id) {
+      navigate("/instructor/courses");
+      return;
+    }
+
+    navigate(
+      `/instructor/courses/${course.id}`,
+      {
+        state: {
+          course,
+        },
+      }
+    );
   };
+
+  // Creates initials for the profile avatar.
+  const instructorInitials =
+    instructor.name
+      .split(" ")
+      .filter(Boolean)
+      .map((name) => name[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "IN";
+
+  const firstName =
+    instructor.name
+      .split(" ")
+      .filter(Boolean)[0] ||
+    "Instructor";
 
   return (
     <div className="app-layout">
-      {/* Reusable instructor navigation sidebar */}
       <InstructorSidebar />
 
-      {/* Main dashboard content */}
       <main className="main-content">
         <header className="topbar">
           <div>
-            <p className="page-label">Instructor Portal</p>
+            <p className="page-label">
+              Instructor Portal
+            </p>
+
             <h1>Dashboard</h1>
           </div>
 
           <div className="instructor-profile">
             <div className="profile-text">
-              <strong>Oshan Karunarathna</strong>
-              <span>Instructor</span>
+              <strong>
+                {instructor.name}
+              </strong>
+
+              <span>
+                {instructor.role}
+              </span>
             </div>
 
-            <div className="avatar">OK</div>
+            <div className="avatar">
+              {instructorInitials}
+            </div>
           </div>
         </header>
 
-        {/* Welcome section */}
         <section className="welcome-section">
           <div>
-            <h2>Welcome back, Oshan!</h2>
-            <p>Here is what is happening in your courses today.</p>
+            <h2>
+              Welcome back, {firstName}!
+            </h2>
+
+            <p>
+              Here is what is happening in
+              your courses today.
+            </p>
           </div>
 
           <button
@@ -120,7 +315,23 @@ function InstructorDashboard() {
           </button>
         </section>
 
-        {/* Dashboard statistics */}
+        {dashboardError && (
+          <div
+            style={{
+              margin: "20px 0",
+              padding: "12px 14px",
+              border: "1px solid #fecaca",
+              borderRadius: "8px",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              fontSize: "13px",
+              fontWeight: "600",
+            }}
+          >
+            {dashboardError}
+          </div>
+        )}
+
         <section className="stat-grid">
           <article className="stat-card">
             <div className="stat-icon blue">
@@ -128,8 +339,15 @@ function InstructorDashboard() {
             </div>
 
             <div>
-              <span>Active Courses</span>
-              <strong>{courses.length}</strong>
+              <span>
+                Active Courses
+              </span>
+
+              <strong>
+                {isLoading
+                  ? "..."
+                  : courseCount}
+              </strong>
             </div>
           </article>
 
@@ -139,19 +357,33 @@ function InstructorDashboard() {
             </div>
 
             <div>
-              <span>Total Students</span>
-              <strong>85</strong>
+              <span>
+                Total Students
+              </span>
+
+              <strong>
+                {isLoading
+                  ? "..."
+                  : totalStudents}
+              </strong>
             </div>
           </article>
 
           <article className="stat-card">
             <div className="stat-icon green">
-              <ClipboardCheck size={22} />
+              <ClipboardCheck
+                size={22}
+              />
             </div>
 
             <div>
               <span>Assignments</span>
-              <strong>15</strong>
+
+              <strong>
+                {
+                  temporaryAssignmentCount
+                }
+              </strong>
             </div>
           </article>
 
@@ -161,25 +393,36 @@ function InstructorDashboard() {
             </div>
 
             <div>
-              <span>Needs Grading</span>
-              <strong>12</strong>
+              <span>
+                Needs Grading
+              </span>
+
+              <strong>
+                {
+                  temporaryNeedsGrading
+                }
+              </strong>
             </div>
           </article>
         </section>
 
-        {/* Courses and upcoming tasks */}
         <div className="dashboard-grid">
           <section className="panel courses-panel">
             <div className="panel-header">
               <div>
                 <h2>My Courses</h2>
-                <p>Manage your current courses</p>
+
+                <p>
+                  Manage your current courses
+                </p>
               </div>
 
               <button
                 className="text-button"
                 onClick={() =>
-                  handleNavigation("/instructor/courses")
+                  handleNavigation(
+                    "/instructor/courses"
+                  )
                 }
               >
                 View All
@@ -187,70 +430,112 @@ function InstructorDashboard() {
             </div>
 
             <div className="course-list">
-              {courses.map((course) => (
-                <article
-                  className="course-card"
-                  key={course.id}
-                >
-                  <div
-                    className="course-color"
-                    style={{ backgroundColor: course.color }}
-                  />
+              {isLoading ? (
+                <p>
+                  Loading courses...
+                </p>
+              ) : courses.length > 0 ? (
+                courses.map((course) => (
+                  <article
+                    className="course-card"
+                    key={course.id}
+                  >
+                    <div
+                      className="course-color"
+                      style={{
+                        backgroundColor:
+                          course.color,
+                      }}
+                    />
 
-                  <div className="course-content">
-                    <span className="course-code">
-                      {course.code}
-                    </span>
-
-                    <h3>{course.title}</h3>
-
-                    <div className="course-details">
-                      <span>{course.students} students</span>
-                      <span>
-                        {course.assignments} assignments
+                    <div className="course-content">
+                      <span className="course-code">
+                        {course.code}
                       </span>
-                    </div>
 
-                    <button
-                      className="manage-button"
-                      onClick={() =>
-                        handleManageCourse(course)
-                      }
-                    >
-                      Manage Course
-                    </button>
-                  </div>
-                </article>
-              ))}
+                      <h3>
+                        {course.title}
+                      </h3>
+
+                      <div className="course-details">
+                        <span>
+                          {course.students}{" "}
+                          students
+                        </span>
+
+                        <span>
+                          {
+                            course.assignments
+                          }{" "}
+                          assignments
+                        </span>
+                      </div>
+
+                      <button
+                        className="manage-button"
+                        onClick={() =>
+                          handleManageCourse(
+                            course
+                          )
+                        }
+                      >
+                        Manage Course
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <p>
+                  No courses found for this
+                  instructor.
+                </p>
+              )}
             </div>
           </section>
 
           <section className="panel tasks-panel">
             <div className="panel-header">
               <div>
-                <h2>Upcoming Tasks</h2>
-                <p>Items requiring your attention</p>
+                <h2>
+                  Upcoming Tasks
+                </h2>
+
+                <p>
+                  Items requiring your
+                  attention
+                </p>
               </div>
             </div>
 
             <div className="task-list">
-              {upcomingTasks.map((task) => (
-                <article
-                  className="task-item"
-                  key={task.id}
-                >
-                  <div className="task-check">
-                    <Clock size={21} />
-                  </div>
+              {upcomingTasks.map(
+                (task) => (
+                  <article
+                    className="task-item"
+                    key={task.id}
+                  >
+                    <div className="task-check">
+                      <Clock
+                        size={21}
+                      />
+                    </div>
 
-                  <div className="task-information">
-                    <h3>{task.title}</h3>
-                    <span>{task.course}</span>
-                  </div>
+                    <div className="task-information">
+                      <h3>
+                        {task.title}
+                      </h3>
 
-                  <time>{task.dueDate}</time>
-                </article>
-              ))}
+                      <span>
+                        {task.course}
+                      </span>
+                    </div>
+
+                    <time>
+                      {task.dueDate}
+                    </time>
+                  </article>
+                )
+              )}
             </div>
           </section>
         </div>
