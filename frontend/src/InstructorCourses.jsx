@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -13,124 +13,267 @@ import {
 
 import InstructorSidebar from "./components/InstructorSidebar";
 
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesWithInstructor,
+} from "../../backend/instructorServices.js";
+
+import {
+  createCourseWithTerm,
+} from "../../backend/courseServices.js";
+
 import "./InstructorCourses.css";
 
-// Temporary course data until the backend is connected.
-const initialCourses = [
-  {
-    id: 1,
-    code: "CSCI 510",
-    title: "Web Application Development",
-    students: 32,
-    assignments: 6,
-    status: "Active",
-    color: "#2563eb",
-    description:
-      "Introduction to modern web application development.",
-    semester: "Fall 2026",
-    gradeCategories: [
-      { id: 1, name: "Assignments", weight: 40 },
-      { id: 2, name: "Quizzes", weight: 20 },
-      { id: 3, name: "Projects", weight: 40 },
-    ],
-  },
-  {
-    id: 2,
-    code: "CSCI 633",
-    title: "Software Engineering",
-    students: 28,
-    assignments: 4,
-    status: "Active",
-    color: "#7c3aed",
-    description:
-      "Software development processes, design, and teamwork.",
-    semester: "Fall 2026",
-    gradeCategories: [
-      { id: 1, name: "Assignments", weight: 30 },
-      { id: 2, name: "Midterm", weight: 30 },
-      { id: 3, name: "Final", weight: 40 },
-    ],
-  },
-  {
-    id: 3,
-    code: "CSCI 721",
-    title: "Artificial Intelligence",
-    students: 24,
-    assignments: 5,
-    status: "Active",
-    color: "#059669",
-    description:
-      "Introduction to artificial intelligence concepts.",
-    semester: "Fall 2026",
-    gradeCategories: [
-      { id: 1, name: "Assignments", weight: 25 },
-      { id: 2, name: "Quizzes", weight: 25 },
-      { id: 3, name: "Final", weight: 50 },
-    ],
-  },
+const courseColors = [
+  "#2563eb",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#dc2626",
 ];
+
+function normalizeCourse(course, index) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.courseCode ??
+      course.course_code ??
+      `COURSE ${index + 1}`,
+
+    title:
+      course.title ??
+      course.courseName ??
+      course.course_name ??
+      "Untitled Course",
+
+    students:
+      course.students ??
+      course.studentCount ??
+      course.student_count ??
+      course.total_students ??
+      0,
+
+    assignments:
+      course.assignments ??
+      course.assignmentCount ??
+      course.assignment_count ??
+      0,
+
+    status:
+      course.status ??
+      "Active",
+
+    semester:
+      course.semester ??
+      course.term ??
+      "",
+
+    description:
+      course.description ??
+      "",
+
+    gradeCategories:
+      course.gradeCategories ??
+      course.grade_categories ??
+      [],
+
+    color:
+      course.color ??
+      courseColors[index % courseColors.length],
+  };
+}
 
 function InstructorCourses() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [courses, setCourses] = useState(initialCourses);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [courses, setCourses] =
+    useState([]);
+
+  const [instructorID, setInstructorID] =
+    useState(null);
+
+  const [searchTerm, setSearchTerm] =
+    useState("");
+
   const [showCreateCourse, setShowCreateCourse] =
     useState(false);
-  const [formError, setFormError] = useState("");
 
-  const [courseForm, setCourseForm] = useState({
-    code: "",
-    title: "",
-    description: "",
-    semester: "",
-  });
+  const [formError, setFormError] =
+    useState("");
 
-  const [gradeCategories, setGradeCategories] = useState([
-    {
-      id: Date.now(),
-      name: "Assignments",
-      weight: "",
-    },
-  ]);
+  const [pageError, setPageError] =
+    useState("");
 
-  const selectedCourse = location.state?.selectedCourse;
+  const [isLoading, setIsLoading] =
+    useState(true);
 
-  const filteredCourses = useMemo(() => {
-    const normalizedSearch =
-      searchTerm.trim().toLowerCase();
+  const [isCreating, setIsCreating] =
+    useState(false);
 
-    if (!normalizedSearch) {
-      return courses;
+  const [courseForm, setCourseForm] =
+    useState({
+      code: "",
+      title: "",
+      description: "",
+      semester: "",
+    });
+
+  const [gradeCategories, setGradeCategories] =
+    useState([
+      {
+        id: Date.now(),
+        name: "Assignments",
+        weight: "",
+      },
+    ]);
+
+  const selectedCourse =
+    location.state?.selectedCourse;
+
+  useEffect(() => {
+    async function loadCourses() {
+      setIsLoading(true);
+      setPageError("");
+
+      const userResult =
+        await getCurrentUser();
+
+      if (!userResult.success) {
+        setPageError(
+          userResult.error ||
+            "Unable to load the current instructor."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const user =
+        userResult.user;
+
+      const currentInstructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      if (!currentInstructorID) {
+        setPageError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      setInstructorID(
+        currentInstructorID
+      );
+
+      const courseResult =
+        await getCoursesWithInstructor(
+          currentInstructorID
+        );
+
+      if (!courseResult.success) {
+        setPageError(
+          courseResult.error ||
+            "Unable to load instructor courses."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        Array.isArray(
+          courseResult.courses
+        )
+          ? courseResult.courses
+          : [];
+
+      setCourses(
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        )
+      );
+
+      setIsLoading(false);
     }
 
-    return courses.filter((course) => {
-      return (
-        course.code
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        course.title
-          .toLowerCase()
-          .includes(normalizedSearch)
+    loadCourses();
+  }, []);
+
+  const filteredCourses =
+    useMemo(() => {
+      const normalizedSearch =
+        searchTerm
+          .trim()
+          .toLowerCase();
+
+      if (!normalizedSearch) {
+        return courses;
+      }
+
+      return courses.filter(
+        (course) => {
+          return (
+            course.code
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            course.title
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              )
+          );
+        }
       );
-    });
-  }, [searchTerm, courses]);
+    }, [searchTerm, courses]);
 
-  const totalWeight = gradeCategories.reduce(
-    (total, category) => {
-      return total + Number(category.weight || 0);
-    },
-    0
-  );
+  const totalWeight =
+    gradeCategories.reduce(
+      (total, category) => {
+        return (
+          total +
+          Number(
+            category.weight || 0
+          )
+        );
+      },
+      0
+    );
 
-  const handleCourseFormChange = (event) => {
-    const { name, value } = event.target;
+  const handleCourseFormChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
 
-    setCourseForm((previousForm) => ({
-      ...previousForm,
-      [name]: value,
-    }));
+    setCourseForm(
+      (previousForm) => ({
+        ...previousForm,
+        [name]: value,
+      })
+    );
+
+    setFormError("");
   };
 
   const handleCategoryChange = (
@@ -138,38 +281,50 @@ function InstructorCourses() {
     field,
     value
   ) => {
-    setGradeCategories((previousCategories) =>
-      previousCategories.map((category) =>
-        category.id === id
-          ? {
-              ...category,
-              [field]: value,
-            }
-          : category
-      )
+    setGradeCategories(
+      (previousCategories) =>
+        previousCategories.map(
+          (category) =>
+            category.id === id
+              ? {
+                  ...category,
+                  [field]: value,
+                }
+              : category
+        )
     );
+
+    setFormError("");
   };
 
   const handleAddCategory = () => {
-    setGradeCategories((previousCategories) => [
-      ...previousCategories,
-      {
-        id: Date.now(),
-        name: "",
-        weight: "",
-      },
-    ]);
+    setGradeCategories(
+      (previousCategories) => [
+        ...previousCategories,
+        {
+          id: Date.now(),
+          name: "",
+          weight: "",
+        },
+      ]
+    );
   };
 
-  const handleRemoveCategory = (id) => {
-    if (gradeCategories.length === 1) {
+  const handleRemoveCategory = (
+    id
+  ) => {
+    if (
+      gradeCategories.length === 1
+    ) {
       return;
     }
 
-    setGradeCategories((previousCategories) =>
-      previousCategories.filter(
-        (category) => category.id !== id
-      )
+    setGradeCategories(
+      (previousCategories) =>
+        previousCategories.filter(
+          (category) =>
+            category.id !== id
+        )
     );
   };
 
@@ -192,81 +347,142 @@ function InstructorCourses() {
     setFormError("");
   };
 
-  const handleCloseCreateCourse = () => {
-    setShowCreateCourse(false);
-
-    resetCourseForm();
-  };
-
-  const handleCreateCourse = (event) => {
-    event.preventDefault();
-
-    if (
-      !courseForm.code.trim() ||
-      !courseForm.title.trim() ||
-      !courseForm.semester.trim()
-    ) {
-      setFormError(
-        "Please complete all required course fields."
-      );
-
-      return;
-    }
-
-    const hasEmptyCategory =
-      gradeCategories.some(
-        (category) =>
-          !category.name.trim() ||
-          category.weight === "" ||
-          Number(category.weight) <= 0
-      );
-
-    if (hasEmptyCategory) {
-      setFormError(
-        "Please enter a name and valid weight for every grade category."
-      );
-
-      return;
-    }
-
-    if (totalWeight !== 100) {
-      setFormError(
-        "Grade category weights must total exactly 100%."
-      );
-
-      return;
-    }
-
-    const newCourse = {
-      id: Date.now(),
-      code: courseForm.code.trim(),
-      title: courseForm.title.trim(),
-      description:
-        courseForm.description.trim(),
-      semester: courseForm.semester,
-      students: 0,
-      assignments: 0,
-      status: "Active",
-      color: "#2563eb",
-      gradeCategories: gradeCategories.map(
-        (category) => ({
-          ...category,
-          weight: Number(category.weight),
-        })
-      ),
+  const handleCloseCreateCourse =
+    () => {
+      setShowCreateCourse(false);
+      resetCourseForm();
     };
 
-    setCourses((previousCourses) => [
-      ...previousCourses,
-      newCourse,
-    ]);
+  const reloadCourses =
+    async () => {
+      if (!instructorID) {
+        return;
+      }
 
-    setShowCreateCourse(false);
+      const result =
+        await getCoursesWithInstructor(
+          instructorID
+        );
 
-    resetCourseForm();
-  };
+      if (!result.success) {
+        setPageError(
+          result.error ||
+            "Unable to refresh courses."
+        );
 
-  const handleManageCourse = (course) => {
+        return;
+      }
+
+      const backendCourses =
+        Array.isArray(result.courses)
+          ? result.courses
+          : [];
+
+      setCourses(
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        )
+      );
+    };
+
+  const handleCreateCourse =
+    async (event) => {
+      event.preventDefault();
+
+      setFormError("");
+
+      if (
+        !courseForm.code.trim() ||
+        !courseForm.title.trim() ||
+        !courseForm.semester.trim()
+      ) {
+        setFormError(
+          "Please complete all required course fields."
+        );
+
+        return;
+      }
+
+      const hasEmptyCategory =
+        gradeCategories.some(
+          (category) =>
+            !category.name.trim() ||
+            category.weight === "" ||
+            Number(
+              category.weight
+            ) <= 0
+        );
+
+      if (hasEmptyCategory) {
+        setFormError(
+          "Please enter a name and valid weight for every grade category."
+        );
+
+        return;
+      }
+
+      if (totalWeight !== 100) {
+        setFormError(
+          "Grade category weights must total exactly 100%."
+        );
+
+        return;
+      }
+
+      setIsCreating(true);
+
+      const result =
+        await createCourseWithTerm(
+          courseForm.title.trim(),
+          courseForm.semester,
+          instructorID ?? -1
+        );
+
+      setIsCreating(false);
+
+      if (
+        result?.success === false
+      ) {
+        setFormError(
+          result.error ||
+            "Unable to create course."
+        );
+
+        return;
+      }
+
+      /*
+        The current backend service only saves:
+        - title
+        - term
+        - instructor ID
+
+        Course code, description, and grade
+        categories remain UI fields until the
+        backend service supports them.
+      */
+
+      await reloadCourses();
+
+      setShowCreateCourse(false);
+      resetCourseForm();
+    };
+
+  const handleManageCourse = (
+    course
+  ) => {
+    if (!course.id) {
+      setPageError(
+        "This course does not have a valid course ID."
+      );
+
+      return;
+    }
+
     navigate(
       `/instructor/courses/${course.id}`,
       {
@@ -291,8 +507,8 @@ function InstructorCourses() {
             <h1>My Courses</h1>
 
             <p>
-              View and manage all courses assigned
-              to you.
+              View and manage all
+              courses assigned to you.
             </p>
           </div>
 
@@ -307,9 +523,29 @@ function InstructorCourses() {
           </button>
         </header>
 
+        {pageError && (
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "12px 14px",
+              border:
+                "1px solid #fecaca",
+              borderRadius: "8px",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              fontSize: "13px",
+              fontWeight: "600",
+            }}
+          >
+            {pageError}
+          </div>
+        )}
+
         {selectedCourse && (
           <section className="selected-course-notice">
-            <strong>Selected course:</strong>
+            <strong>
+              Selected course:
+            </strong>
 
             <span>
               {selectedCourse.code} -{" "}
@@ -327,7 +563,9 @@ function InstructorCourses() {
               placeholder="Search by course code or title"
               value={searchTerm}
               onChange={(event) =>
-                setSearchTerm(event.target.value)
+                setSearchTerm(
+                  event.target.value
+                )
               }
             />
           </div>
@@ -335,7 +573,9 @@ function InstructorCourses() {
           <button
             className="secondary-button"
             onClick={() =>
-              navigate("/instructor/dashboard")
+              navigate(
+                "/instructor/dashboard"
+              )
             }
           >
             Back to Dashboard
@@ -348,85 +588,117 @@ function InstructorCourses() {
               <h2>All Courses</h2>
 
               <p>
-                {filteredCourses.length} courses found
+                {isLoading
+                  ? "Loading courses..."
+                  : `${filteredCourses.length} courses found`}
               </p>
             </div>
           </div>
 
-          {filteredCourses.length > 0 ? (
+          {isLoading ? (
+            <div className="empty-course-message">
+              <BookOpen size={34} />
+
+              <h3>
+                Loading courses...
+              </h3>
+            </div>
+          ) : filteredCourses.length >
+            0 ? (
             <div className="all-course-grid">
-              {filteredCourses.map((course) => (
-                <article
-                  className="full-course-card"
-                  key={course.id}
-                >
-                  <div
-                    className="course-color"
-                    style={{
-                      backgroundColor:
-                        course.color,
-                    }}
-                  />
+              {filteredCourses.map(
+                (course) => (
+                  <article
+                    className="full-course-card"
+                    key={
+                      course.id ??
+                      `${course.code}-${course.title}`
+                    }
+                  >
+                    <div
+                      className="course-color"
+                      style={{
+                        backgroundColor:
+                          course.color,
+                      }}
+                    />
 
-                  <div className="full-course-content">
-                    <div className="course-card-heading">
-                      <div>
-                        <span className="course-code">
-                          {course.code}
-                        </span>
+                    <div className="full-course-content">
+                      <div className="course-card-heading">
+                        <div>
+                          <span className="course-code">
+                            {course.code}
+                          </span>
 
-                        <h3>{course.title}</h3>
-                      </div>
+                          <h3>
+                            {course.title}
+                          </h3>
+                        </div>
 
-                      <span className="course-status">
-                        {course.status}
-                      </span>
-                    </div>
-
-                    <div className="course-stat-row">
-                      <div>
-                        <Users size={18} />
-
-                        <span>
-                          {course.students} students
+                        <span className="course-status">
+                          {course.status}
                         </span>
                       </div>
 
-                      <div>
-                        <ClipboardList
-                          size={18}
+                      <div className="course-stat-row">
+                        <div>
+                          <Users
+                            size={18}
+                          />
+
+                          <span>
+                            {
+                              course.students
+                            }{" "}
+                            students
+                          </span>
+                        </div>
+
+                        <div>
+                          <ClipboardList
+                            size={18}
+                          />
+
+                          <span>
+                            {
+                              course.assignments
+                            }{" "}
+                            assignments
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        className="manage-button"
+                        onClick={() =>
+                          handleManageCourse(
+                            course
+                          )
+                        }
+                      >
+                        <BookOpen
+                          size={17}
                         />
 
-                        <span>
-                          {course.assignments}{" "}
-                          assignments
-                        </span>
-                      </div>
+                        Manage Course
+                      </button>
                     </div>
-
-                    <button
-                      className="manage-button"
-                      onClick={() =>
-                        handleManageCourse(course)
-                      }
-                    >
-                      <BookOpen size={17} />
-
-                      Manage Course
-                    </button>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                )
+              )}
             </div>
           ) : (
             <div className="empty-course-message">
               <BookOpen size={34} />
 
-              <h3>No courses found</h3>
+              <h3>
+                No courses found
+              </h3>
 
               <p>
-                Try searching with a different
-                course code or title.
+                No courses are currently
+                assigned to this
+                instructor.
               </p>
             </div>
           )}
@@ -442,7 +714,9 @@ function InstructorCourses() {
                   Course Management
                 </p>
 
-                <h2>Create Course</h2>
+                <h2>
+                  Create Course
+                </h2>
               </div>
 
               <button
@@ -458,7 +732,9 @@ function InstructorCourses() {
 
             <form
               className="create-course-form"
-              onSubmit={handleCreateCourse}
+              onSubmit={
+                handleCreateCourse
+              }
             >
               <div className="course-form-grid">
                 <div className="course-form-group">
@@ -471,7 +747,9 @@ function InstructorCourses() {
                     name="code"
                     type="text"
                     placeholder="Example: CSCI 510"
-                    value={courseForm.code}
+                    value={
+                      courseForm.code
+                    }
                     onChange={
                       handleCourseFormChange
                     }
@@ -488,7 +766,9 @@ function InstructorCourses() {
                     name="title"
                     type="text"
                     placeholder="Example: Web Application Development"
-                    value={courseForm.title}
+                    value={
+                      courseForm.title
+                    }
                     onChange={
                       handleCourseFormChange
                     }
@@ -504,7 +784,9 @@ function InstructorCourses() {
                 <select
                   id="semester"
                   name="semester"
-                  value={courseForm.semester}
+                  value={
+                    courseForm.semester
+                  }
                   onChange={
                     handleCourseFormChange
                   }
@@ -549,12 +831,14 @@ function InstructorCourses() {
               <section className="grading-section">
                 <div className="grading-section-header">
                   <div>
-                    <h3>Grade Categories</h3>
+                    <h3>
+                      Grade Categories
+                    </h3>
 
                     <p>
-                      Add the categories used to
-                      calculate the final course
-                      grade.
+                      Add the categories
+                      used to calculate the
+                      final course grade.
                     </p>
                   </div>
 
@@ -566,7 +850,6 @@ function InstructorCourses() {
                     }
                   >
                     <Plus size={17} />
-
                     Add Category
                   </button>
                 </div>
@@ -576,7 +859,9 @@ function InstructorCourses() {
                     (category) => (
                       <div
                         className="grade-category-row"
-                        key={category.id}
+                        key={
+                          category.id
+                        }
                       >
                         <div className="category-name-field">
                           <label>
@@ -595,7 +880,8 @@ function InstructorCourses() {
                               handleCategoryChange(
                                 category.id,
                                 "name",
-                                event.target
+                                event
+                                  .target
                                   .value
                               )
                             }
@@ -603,7 +889,9 @@ function InstructorCourses() {
                         </div>
 
                         <div className="category-weight-field">
-                          <label>Weight</label>
+                          <label>
+                            Weight
+                          </label>
 
                           <div className="weight-input-container">
                             <input
@@ -620,13 +908,16 @@ function InstructorCourses() {
                                 handleCategoryChange(
                                   category.id,
                                   "weight",
-                                  event.target
+                                  event
+                                    .target
                                     .value
                                 )
                               }
                             />
 
-                            <span>%</span>
+                            <span>
+                              %
+                            </span>
                           </div>
                         </div>
 
@@ -659,12 +950,31 @@ function InstructorCourses() {
                       : "grade-total"
                   }
                 >
-                  <span>Total Weight</span>
+                  <span>
+                    Total Weight
+                  </span>
 
                   <strong>
-                    {totalWeight}% / 100%
+                    {totalWeight}% /
+                    100%
                   </strong>
                 </div>
+
+                <p
+                  style={{
+                    margin:
+                      "12px 0 0",
+                    color: "#64748b",
+                    fontSize: "12px",
+                  }}
+                >
+                  Course code,
+                  description, and grade
+                  categories are not yet
+                  included in the current
+                  create-course backend
+                  service.
+                </p>
               </section>
 
               {formError && (
@@ -687,10 +997,15 @@ function InstructorCourses() {
                 <button
                   type="submit"
                   className="course-create-button"
+                  disabled={
+                    isCreating
+                  }
                 >
                   <Plus size={18} />
 
-                  Create Course
+                  {isCreating
+                    ? "Creating..."
+                    : "Create Course"}
                 </button>
               </div>
             </form>
