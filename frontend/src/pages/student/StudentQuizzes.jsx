@@ -1,12 +1,14 @@
 import "./CoursePages.css";
 import "./StudentQuizzes.css";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
 
 // Temporary frontend data until backend API integration is connected
-import {
-    enrolledCourses,
-    upcomingQuizzes,
-} from "../../data/studentData";
+// import {
+//     enrolledCourses,
+//     upcomingQuizzes,
+// } from "../../data/studentData";
 
 const quizAttemptsKey = "quizAttempts";
 
@@ -38,13 +40,51 @@ function StudentQuizzes() {
     const { courseId } = useParams();
     const navigate = useNavigate();
 
+    // Loads quizzes posted for this course from the backend.
+    const [courseQuizzes, setCourseQuizzes] = useState([]);
+    const [quizError, setQuizError] = useState("");
+    const [quizzesLoading, setQuizzesLoading] =
+        useState(true);
+
+    useEffect(() => {
+        async function loadQuizzes() {
+            setQuizzesLoading(true);
+            setQuizError("");
+
+            const result =
+                await getQuizzesForCourse(courseId);
+
+            if (!result.success) {
+                setQuizError(
+                    result.error || "Unable to load quizzes."
+                );
+                setQuizzesLoading(false);
+                return;
+            }
+
+            const normalizedQuizzes = (
+                result.data?.quizzes || []
+            ).map((quiz) => ({
+                id: quiz.quiz_id ?? quiz.id,
+                courseId:
+                    quiz.course_id ?? Number(courseId),
+                courseName: quiz.course_name,
+                title: quiz.title,
+                dueDate: quiz.due_date?.slice(0, 10),
+            }));
+
+            setCourseQuizzes(normalizedQuizzes);
+            setQuizzesLoading(false);
+        }
+
+        loadQuizzes();
+    }, [courseId]);
     // Temporary browser storage
     // Replace this with enrolled course data returned by the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
-
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
+    // const savedCourses = localStorage.getItem("studentCourses");
+    // const studentCourses = savedCourses
+    //     ? JSON.parse(savedCourses)
+    //     : enrolledCourses;
 
     // Temporary browser storage
     // Later the backend will return the student's quiz attempts
@@ -53,20 +93,20 @@ function StudentQuizzes() {
     );
 
     // Integration point: fetch and verify the selected course through the backend API
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
-    );
+    // const selectedCourse = studentCourses.find(
+    //     (course) => String(course.id) === courseId
+    // );
 
-    // Integration point: fetch the available quizzes for this course from the backend API
-    const courseQuizzes = upcomingQuizzes.filter(
-        (quiz) => quiz.courseId === selectedCourse?.id
-    );
+    // // Integration point: fetch the available quizzes for this course from the backend API
+    // const courseQuizzes = upcomingQuizzes.filter(
+    //     (quiz) => quiz.courseId === selectedCourse?.id
+    // );
 
     function getQuizAttempt(quizId) {
         return savedAttempts.find(
             (attempt) =>
-                attempt.quizId === quizId &&
-                attempt.courseId === selectedCourse?.id
+                String(attempt.quizId) === String(quizId) &&
+                String(attempt.courseId) === String(courseId)
         );
     }
 
@@ -120,10 +160,17 @@ function StudentQuizzes() {
             <section className="course-page__card">
                 <h1>Quizzes</h1>
 
-                {quizzes.length > 0 ? (
+                {quizzesLoading ? (
+                    <p className="course-page__empty">
+                        Loading quizzes...
+                    </p>
+                ) : quizError ? (
+                    <p className="course-page__empty">
+                        {quizError}
+                    </p>
+                ) : quizzes.length > 0 ? (
                     quizzes.map((quiz) => {
-                        const attempt =
-                            getQuizAttempt(quiz.id);
+                        const attempt = getQuizAttempt(quiz.id);
 
                         let quizStatus;
 
@@ -160,13 +207,16 @@ function StudentQuizzes() {
                                         </strong>
                                     </div>
 
+                                    {/* 
+                                    currently the backend does not return a time limit
+                                    
                                     <div>
                                         <span>Time Limit</span>
 
                                         <strong>
                                             {quiz.timeLimit} minutes
                                         </strong>
-                                    </div>
+                                    </div> */}
                                 </div>
 
                                 {attempt?.status ===

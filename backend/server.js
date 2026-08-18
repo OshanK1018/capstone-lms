@@ -917,7 +917,6 @@ app.post('/api/Course_Grades',
             if (letter_grade === 'D') score = 65;
             if (letter_grade === 'F') score = 55;
         }
-            
 
         try {
             const [existingUser] = await connectionPool.query(
@@ -934,7 +933,7 @@ app.post('/api/Course_Grades',
             if (existingCourse.length === 0) 
                 return res.status(404).json({ error: `Course with ID ${courseIDasNum} not found` });
             
-            const [existingEnrollment] = await connection.query(
+            const [existingEnrollment] = await connectionPool.query(
                 `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ? AND isArchived = 0`,
                 [courseIDasNum, studentIDasNum]
             );
@@ -951,8 +950,8 @@ app.post('/api/Course_Grades',
                 return res.status(409).json({ error: `Grade for student ${studentIDasNum} in course ${courseIDasNum} exists` });
 
             const [successfullyInsertedGrade] = await connectionPool.query(
-                `INSERT INTO Course_Grades (student_id, course_id, letter_grade) VALUES (?, ?, ?)`,
-                [studentIDasNum, courseIDasNum, letter_grade]
+                `INSERT INTO Course_Grades (student_id, course_id, letter_grade, score) VALUES (?, ?, ?, ?)`,
+                [studentIDasNum, courseIDasNum, letter_grade, score]
             );
             return res.status(201).json(
                 {
@@ -960,9 +959,10 @@ app.post('/api/Course_Grades',
                     message: `Successfully uploaded Grade for student`,
                     grade: {
                         grade_id: successfullyInsertedGrade.insertId,
-                        student_id: successfullyInsertedGrade.student_id,
-                        course_id: successfullyInsertedGrade.course_id,
-                        letter_grade: successfullyInsertedGrade.letter_grade
+                        student_id: studentIDasNum,
+                        course_id: courseIDasNum,
+                        letter_grade: letter_grade,
+                        score: score
                     }
                 }
             );
@@ -972,7 +972,7 @@ app.post('/api/Course_Grades',
             res.status(500).json({ error: 'Internal server error' });
         }
     }
-)
+);
 
 /////////////////// GET REQUESTS ////////////////////////////
 
@@ -1139,6 +1139,26 @@ app.get('/api/courses/student/:studentID',
     }
 );
 
+// Get all active courses for student enrollment
+app.get('/api/courses/all', authenticateToken, async (req, res) => {
+    try {
+        const [courses] = await connectionPool.query(`
+            SELECT Courses.course_id, Courses.title,
+            Users.name AS instructor_name, Courses.instructor_id,
+            Courses.credits, Courses.start_date, Courses.end_date,
+            Courses.max_seats, Courses.seats_open, Courses.materials_url
+            FROM Courses
+            LEFT JOIN Users ON Courses.instructor_id = Users.user_id
+            WHERE Courses.isArchived = 0
+        `);
+
+        res.json({ success: true, courses });
+    } catch (error) {
+        console.error("Could not fetch courses", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 // get course information based off ID
 app.get('/api/courses/:courseID',
     authenticateToken,
@@ -1226,12 +1246,132 @@ app.get('/api/Quizzes/:quizID',
 )
 
 
-// get quiz_attempt by ID
+// get quiz_attempt by quiz ID
+app.get('/api/Quizzes/:quizID/attempts',
+    authenticateToken,
+    async (req, res) => {
+        const quizIDasNum = Number(req.params.quizID);
+        if (!quizIDasNum || quizIDasNum < 0 || !Number.isInteger(quizIDasNum))
+            return res.status(400).json({ error: 'Invalid quiz ID' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        try {
+            const [quiz] = await connectionPool.query(
+                `SELECT Quizzes.quiz_id, Quizzes.course_id, Courses.instructor_id
+                 FROM Quizzes
+                 JOIN Courses ON Quizzes.course_id = Courses.course_id
+                 WHERE Quizzes.quiz_id = ? AND Quizzes.isArchived = 0 AND Courses.isArchived = 0`,
+                [quizIDasNum]
+            );
+            if (quiz.length === 0)
+                return res.status(404).json({ error: 'Quiz not found' });
+
+            const courseId = quiz[0].course_id;
+            const instructorId = quiz[0].instructor_id;
+
+            if (currentUserRole === 'student') {
+                const [enrolled] = await connectionPool.query(
+                    `SELECT enrollment_id FROM Enrollments WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                    [currentUserID, courseId]
+                );
+                if (enrolled.length === 0)
+                    return res.status(403).json({ error: 'Not enrolled in this course' });
+                const [attempts] = await connectionPool.query(
+                    `SELECT attempt_id, quiz_id, student_id, score, attempt_date
+                     FROM Quiz_Attempts
+                     WHERE quiz_id = ? AND student_id = ? AND isArchived = 0`,
+                    [quizIDasNum, currentUserID]
+                );
+                return res.status(200).json({ success: true, attempts });
+            } else if (currentUserRole === 'instructor') {
+                if (instructorId !== currentUserID)
+                    return res.status(403).json({ error: 'Not your course' });
+                const [attempts] = await connectionPool.query(
+                    `SELECT Quiz_Attempts.attempt_id, Quiz_Attempts.quiz_id, Quiz_Attempts.student_id, Quiz_Attempts.score, Quiz_Attempts.attempt_date, Users.name AS student_name
+                     FROM Quiz_Attempts
+                     JOIN Users ON Quiz_Attempts.student_id = Users.user_id
+                     WHERE Quiz_Attempts.quiz_id = ? AND Quiz_Attempts.isArchived = 0`,
+                    [quizIDasNum]
+                );
+                return res.status(200).json({ success: true, attempts });
+            } else {
+                const [attempts] = await connectionPool.query(
+                    `SELECT Quiz_Attempts.attempt_id, Quiz_Attempts.quiz_id, Quiz_Attempts.student_id, Quiz_Attempts.score, Quiz_Attempts.attempt_date, Users.name AS student_name
+                     FROM Quiz_Attempts
+                     JOIN Users ON Quiz_Attempts.student_id = Users.user_id
+                     WHERE Quiz_Attempts.quiz_id = ? AND Quiz_Attempts.isArchived = 0`,
+                    [quizIDasNum]
+                );
+                return res.status(200).json({ success: true, attempts });
+            }
+        } catch (error) {
+            console.error('Error fetching quiz attempts:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
 
 
-// get quiz_questions by quiz ID 
-app.get('/api/Quizzes/quiz_questions/:quizID',
-    
+// get all questions for a quiz by ID
+app.get('/api/Quizzes/:quizID/questions',
+    authenticateToken,
+    async (req, res) => {
+        const quizIDasNum = Number(req.params.quizID);
+        if (!quizIDasNum || quizIDasNum < 0 || !Number.isInteger(quizIDasNum))
+            return res.status(400).json({ error: 'Invalid quiz ID' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        try {
+            const [quiz] = await connectionPool.query(
+                `SELECT Quizzes.quiz_id, Quizzes.course_id, Courses.instructor_id
+                 FROM Quizzes
+                 JOIN Courses ON Quizzes.course_id = Courses.course_id
+                 WHERE Quizzes.quiz_id = ? AND Quizzes.isArchived = 0 AND Courses.isArchived = 0`,
+                [quizIDasNum]
+            );
+            if (quiz.length === 0)
+                return res.status(404).json({ error: 'Quiz not found' });
+
+            const courseId = quiz[0].course_id;
+            const instructorId = quiz[0].instructor_id;
+
+            if (currentUserRole === 'student') {
+                const [enrolled] = await connectionPool.query(
+                    `SELECT enrollment_id FROM Enrollments WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                    [currentUserID, courseId]
+                );
+                if (enrolled.length === 0)
+                    return res.status(403).json({ error: 'You are not enrolled in this course' });
+            } else if (currentUserRole === 'instructor') {
+                if (instructorId !== currentUserID)
+                    return res.status(403).json({ error: 'You are not the instructor of this course' });
+            }
+
+            const [questions] = await connectionPool.query(
+                `SELECT question_id, quiz_id, question_text, correct_answer, score, isArchived
+                 FROM Quiz_Questions
+                 WHERE quiz_id = ? AND isArchived = 0`,
+                [quizIDasNum]
+            );
+
+            if (currentUserRole === 'student') {
+                const sanitized = questions.map(q => ({
+                    ...q,
+                    correct_answer: undefined
+                }));
+                return res.status(200).json({ success: true, questions: sanitized });
+            }
+
+            return res.status(200).json({ success: true, questions });
+        } catch (error) {
+            console.error('Error fetching quiz questions:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
 );
 
 
@@ -1262,7 +1402,7 @@ app.get('/api/courses/assignments/:courseID',
         try {
             if (isInstructor) {
                 const [isActuallyYourCourse] = await connectionPool.query(
-                    `SELECT course_id, instructor_id FROM Courses WHERE course_id = ? AND instructor_id = ? AND isArchived = 0`,
+                    `SELECT Courses.course_id, Courses.instructor_id FROM Courses WHERE Courses.course_id = ? AND Courses.instructor_id = ? AND Courses.isArchived = 0`,
                     [courseIDasNum, currentUserID]
                 );
                 if (isActuallyYourCourse.length === 0) {
@@ -1272,7 +1412,7 @@ app.get('/api/courses/assignments/:courseID',
 
             if (isStudent) {
                 const [areYouEnrolled] = await connectionPool.query(
-                    `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ?`,
+                    `SELECT Enrollments.enrollment_id FROM Enrollments WHERE Enrollments.course_id = ? AND Enrollments.student_id = ?`,
                     [courseIDasNum, currentUserID]
                 );
                 if (areYouEnrolled.length === 0) {
@@ -1282,26 +1422,30 @@ app.get('/api/courses/assignments/:courseID',
 
             let sqlQuery;
             if (isAdmin) {
-                sqlQuery = `SELECT * FROM Assignments where course_id = ?`;
+                sqlQuery = `
+                    SELECT Assignments.*,
+                    (SELECT COUNT(*) FROM Submissions WHERE Submissions.assignment_id = Assignments.assignment_id AND Submissions.isArchived = 0) AS total_submissions,
+                    (SELECT COUNT(*) FROM Submissions WHERE Submissions.assignment_id = Assignments.assignment_id AND Submissions.score IS NULL AND Submissions.isArchived = 0) AS ungraded_submissions
+                    FROM Assignments
+                    WHERE Assignments.course_id = ? AND Assignments.isArchived = 0
+                `;
+            } else {
+                sqlQuery = `
+                    SELECT Assignments.assignment_id, Assignments.title, Assignments.due_date, Assignments.max_points, Assignments.assignment_link, Assignments.allow_resubmission,
+                    (SELECT COUNT(*) FROM Submissions WHERE Submissions.assignment_id = Assignments.assignment_id AND Submissions.isArchived = 0) AS total_submissions,
+                    (SELECT COUNT(*) FROM Submissions WHERE Submissions.assignment_id = Assignments.assignment_id AND Submissions.score IS NULL AND Submissions.isArchived = 0) AS ungraded_submissions
+                    FROM Assignments
+                    WHERE Assignments.course_id = ? AND Assignments.isArchived = 0
+                `;
             }
-            else { 
-                sqlQuery = `SELECT assignment_id, title, due_date, max_points, assignment_link, allow_resubmission
-                           FROM Assignments WHERE course_id = ? AND isArchived = 0`;
-            }
-            
-            const [foundCourseWithAssignments] = await connectionPool.query(
-                sqlQuery, [courseIDasNum]
-            );
 
-            return res.status(200).json(
-                {
-                    success: true,
-                    assignments: foundCourseWithAssignments
-                }
-            );
+            const [assignments] = await connectionPool.query(sqlQuery, [courseIDasNum]);
 
-        }
-        catch (error) {
+            return res.status(200).json({
+                success: true,
+                assignments: assignments
+            });
+        } catch (error) {
             console.log(`Could not get list of assignments from course with ID ${courseIDasNum}`, error);
             res.status(500).json({ error: "Internal server error" });
         }
@@ -1328,7 +1472,7 @@ app.get('/api/courses/quizzes/:courseID',
         try {
             if (isInstructor) {
                 const [isActuallyYourCourse] = await connectionPool.query(
-                    `SELECT course_id, instructor_id FROM Courses WHERE course_id = ? AND instructor_id = ? AND isArchived = 0`,
+                    `SELECT Courses.course_id, Courses.instructor_id FROM Courses WHERE Courses.course_id = ? AND Courses.instructor_id = ? AND Courses.isArchived = 0`,
                     [courseIDasNum, currentUserID]
                 );
                 if (isActuallyYourCourse.length === 0) {
@@ -1338,7 +1482,7 @@ app.get('/api/courses/quizzes/:courseID',
 
             if (isStudent) {
                 const [areYouEnrolled] = await connectionPool.query(
-                    `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ?`,
+                    `SELECT Enrollments.enrollment_id FROM Enrollments WHERE Enrollments.course_id = ? AND Enrollments.student_id = ?`,
                     [courseIDasNum, currentUserID]
                 );
                 if (areYouEnrolled.length === 0) {
@@ -1348,27 +1492,28 @@ app.get('/api/courses/quizzes/:courseID',
 
             let sqlQuery;
             if (isAdmin) {
-                sqlQuery = `SELECT * FROM Quizzes where course_id = ?`;
+                sqlQuery = `
+                    SELECT Quizzes.*,
+                    (SELECT COUNT(*) FROM Quiz_Attempts WHERE Quiz_Attempts.quiz_id = Quizzes.quiz_id AND Quiz_Attempts.isArchived = 0) AS total_attempts
+                    FROM Quizzes
+                    WHERE Quizzes.course_id = ? AND Quizzes.isArchived = 0
+                `;
+            } else {
+                sqlQuery = `
+                    SELECT Quizzes.quiz_id, Quizzes.course_id, Quizzes.title, Quizzes.due_date,
+                    (SELECT COUNT(*) FROM Quiz_Attempts WHERE Quiz_Attempts.quiz_id = Quizzes.quiz_id AND Quiz_Attempts.isArchived = 0) AS total_attempts
+                    FROM Quizzes
+                    WHERE Quizzes.course_id = ? AND Quizzes.isArchived = 0
+                `;
             }
-            else { 
-                sqlQuery =`SELECT Quizzes.quiz_id, Courses.course_id, Courses.title as course_name, Quizzes.title, Quizzes.due_date 
-                           FROM Quizzes LEFT JOIN Courses ON Courses.course_id = Quizzes.course_id 
-                           WHERE Quizzes.course_id = ?`;
-            }
 
-            const [foundCourseWithQuizzes] = await connectionPool.query(
-                sqlQuery, [courseIDasNum]
-            );
+            const [quizzes] = await connectionPool.query(sqlQuery, [courseIDasNum]);
 
-            return res.status(200).json(
-                {
-                    success: true,
-                    quizzes: foundCourseWithQuizzes
-                }
-            );
-
-        }
-        catch (error) {
+            return res.status(200).json({
+                success: true,
+                quizzes: quizzes
+            });
+        } catch (error) {
             console.log(`Could not get list of quizzes from course with ID ${courseIDasNum}`, error);
             res.status(500).json({ error: "Internal server error" });
         }
@@ -1562,6 +1707,92 @@ app.get('/api/courses/students/:courseID',
     }
 );
 
+// get grade by student and course
+app.get('/api/Course_Grades/:studentId/:courseId',
+    authenticateToken,
+    async (req, res) => {
+        const studentId = Number(req.params.studentId);
+        const courseId = Number(req.params.courseId);
+        const currentUserId = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (!studentId || studentId < 0 || !Number.isInteger(studentId))
+            return res.status(400).json({ error: 'Invalid student ID' });
+        if (!courseId || courseId < 0 || !Number.isInteger(courseId))
+            return res.status(400).json({ error: 'Invalid course ID' });
+
+        try {
+            const [course] = await connectionPool.query(
+                `SELECT instructor_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseId]
+            );
+            if (course.length === 0)
+                return res.status(404).json({ error: 'Course not found' });
+
+            if (currentUserRole === 'student') {
+                if (currentUserId !== studentId)
+                    return res.status(403).json({ error: 'You can only view your own grades' });
+            } else if (currentUserRole === 'instructor') {
+                if (course[0].instructor_id !== currentUserId)
+                    return res.status(403).json({ error: 'You are not the instructor for this course' });
+            }
+
+            const [grade] = await connectionPool.query(
+                `SELECT grade_id, student_id, course_id, letter_grade, score, isArchived
+                 FROM Course_Grades
+                 WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                [studentId, courseId]
+            );
+
+            if (grade.length === 0)
+                return res.status(404).json({ error: 'Grade not found for this student/course' });
+
+            return res.status(200).json({ success: true, grade: grade[0] });
+        } catch (error) {
+            console.error('Error fetching grade:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
+// get all grades for instructor
+app.get('/api/Courses/:courseId/grades',
+    authenticateToken,
+    async (req, res) => {
+        const courseId = Number(req.params.courseId);
+        const currentUserId = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (!courseId || courseId < 0 || !Number.isInteger(courseId))
+            return res.status(400).json({ error: 'Invalid course ID' });
+
+        try {
+            const [course] = await connectionPool.query(
+                `SELECT instructor_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseId]
+            );
+            if (course.length === 0)
+                return res.status(404).json({ error: 'Course not found' });
+
+            if (currentUserRole !== 'admin' && course[0].instructor_id !== currentUserId) {
+                return res.status(403).json({ error: 'Unauthorized to view grades for this course' });
+            }
+
+            const [grades] = await connectionPool.query(
+                `SELECT g.grade_id, g.student_id, g.letter_grade, g.score, u.name
+                 FROM Course_Grades g
+                 JOIN Users u ON g.student_id = u.user_id
+                 WHERE g.course_id = ? AND g.isArchived = 0 AND u.isArchived = 0`,
+                [courseId]
+            );
+
+            return res.status(200).json({ success: true, grades });
+        } catch (error) {
+            console.error('Error fetching course grades:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
 
 
 /////////////////// PATCH REQUESTS ////////////////////////////
@@ -1608,7 +1839,7 @@ app.patch('/api/Course_Grades/:studentID/:courseID/update',
             if (letter_grade === 'D') score = 65;
             if (letter_grade === 'F') score = 55;
         }
-         
+
         const connection = await connectionPool.getConnection();
         
         try {
@@ -1679,6 +1910,198 @@ app.patch('/api/Course_Grades/:studentID/:courseID/update',
         }    
         finally {
             await connection.release();
+        }
+    }
+);
+
+//////////////// PUT REQUESTS ////////////////
+app.put('/api/Quizzes/:quizID',
+    authenticateToken,
+    async (req, res) => {
+        const quizIDasNum = Number(req.params.quizID);
+        let { title, due_date } = req.body;
+        title = title?.trim();
+        due_date = due_date?.trim();
+
+        if (!quizIDasNum || quizIDasNum < 0 || !Number.isInteger(quizIDasNum))
+            return res.status(400).json({ error: 'Invalid quiz ID' });
+
+        if (!title && !due_date)
+            return res.status(400).json({ error: 'No fields to update' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        try {
+            const [quiz] = await connectionPool.query(
+                `SELECT Quizzes.quiz_id, Quizzes.course_id, Courses.instructor_id
+                 FROM Quizzes
+                 JOIN Courses ON Quizzes.course_id = Courses.course_id
+                 WHERE Quizzes.quiz_id = ? AND Quizzes.isArchived = 0 AND Courses.isArchived = 0`,
+                [quizIDasNum]
+            );
+            if (quiz.length === 0)
+                return res.status(404).json({ error: 'Quiz not found' });
+
+            const instructorId = quiz[0].instructor_id;
+
+            if (currentUserRole !== 'admin') {
+                if (currentUserRole !== 'instructor' || instructorId !== currentUserID)
+                    return res.status(403).json({ error: 'You do not have permission to update this quiz' });
+            }
+
+            if (due_date) {
+                const [date, time] = due_date.split(' ');
+                if (!isValidYYYYMMDD(date) || !isValidTime(time))
+                    return res.status(400).json({ error: 'Invalid due date/time format' });
+                if (new Date(due_date) <= new Date())
+                    return res.status(400).json({ error: 'Due date must be in the future' });
+            }
+
+            const fields = [];
+            const values = [];
+            if (title) { fields.push('title = ?'); values.push(title); }
+            if (due_date) { fields.push('due_date = ?'); values.push(due_date); }
+            values.push(quizIDasNum);
+
+            await connectionPool.query(
+                `UPDATE Quizzes SET ${fields.join(', ')} WHERE quiz_id = ?`,
+                values
+            );
+
+            const [updated] = await connectionPool.query(
+                `SELECT quiz_id, course_id, title, due_date, isArchived FROM Quizzes WHERE quiz_id = ?`,
+                [quizIDasNum]
+            );
+
+            res.status(200).json({
+                success: true,
+                message: 'Quiz updated successfully',
+                quiz: updated[0]
+            });
+        } catch (error) {
+            console.error('Error updating quiz:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
+app.put('/api/Quiz_Questions/:questionID',
+    authenticateToken,
+    async (req, res) => {
+        const questionIDasNum = Number(req.params.questionID);
+        let { question_text, correct_answer, score } = req.body;
+        question_text = question_text?.trim();
+        correct_answer = correct_answer?.trim();
+        const scoreAsNum = Number(score);
+
+        if (!questionIDasNum || questionIDasNum < 0 || !Number.isInteger(questionIDasNum))
+            return res.status(400).json({ error: 'Invalid question ID' });
+
+        if (!question_text && !correct_answer && isNaN(scoreAsNum))
+            return res.status(400).json({ error: 'No fields to update' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        try {
+            const [question] = await connectionPool.query(
+                `SELECT Quiz_Questions.question_id, Quiz_Questions.quiz_id, Quizzes.course_id, Courses.instructor_id
+                 FROM Quiz_Questions
+                 JOIN Quizzes ON Quiz_Questions.quiz_id = Quizzes.quiz_id
+                 JOIN Courses ON Quizzes.course_id = Courses.course_id
+                 WHERE Quiz_Questions.question_id = ? AND Quiz_Questions.isArchived = 0 AND Quizzes.isArchived = 0 AND Courses.isArchived = 0`,
+                [questionIDasNum]
+            );
+            if (question.length === 0)
+                return res.status(404).json({ error: 'Question not found' });
+
+            const instructorId = question[0].instructor_id;
+
+            if (currentUserRole !== 'admin') {
+                if (currentUserRole !== 'instructor' || instructorId !== currentUserID)
+                    return res.status(403).json({ error: 'You do not have permission to update this question' });
+            }
+
+            const fields = [];
+            const values = [];
+            if (question_text) { fields.push('question_text = ?'); values.push(question_text); }
+            if (correct_answer) { fields.push('correct_answer = ?'); values.push(correct_answer); }
+            if (!isNaN(scoreAsNum) && scoreAsNum >= 0) {
+                fields.push('score = ?');
+                values.push(scoreAsNum);
+            }
+            values.push(questionIDasNum);
+
+            if (fields.length === 0)
+                return res.status(400).json({ error: 'No valid fields to update' });
+
+            await connectionPool.query(
+                `UPDATE Quiz_Questions SET ${fields.join(', ')} WHERE question_id = ?`,
+                values
+            );
+
+            const [updated] = await connectionPool.query(
+                `SELECT question_id, quiz_id, question_text, correct_answer, score, isArchived
+                 FROM Quiz_Questions WHERE question_id = ?`,
+                [questionIDasNum]
+            );
+
+            res.status(200).json({
+                success: true,
+                message: 'Question updated successfully',
+                question: updated[0]
+            });
+        } catch (error) {
+            console.error('Error updating quiz question:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
+
+////////////// DELETE REQUESTS ////////////////
+app.delete('/api/Quiz_Questions/:questionID',
+    authenticateToken,
+    async (req, res) => {
+        const questionIDasNum = Number(req.params.questionID);
+        if (!questionIDasNum || questionIDasNum < 0 || !Number.isInteger(questionIDasNum))
+            return res.status(400).json({ error: 'Invalid question ID' });
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        try {
+            const [question] = await connectionPool.query(
+                `SELECT Quiz_Questions.question_id, Quiz_Questions.quiz_id, Quizzes.course_id, Courses.instructor_id
+                 FROM Quiz_Questions
+                 JOIN Quizzes ON Quiz_Questions.quiz_id = Quizzes.quiz_id
+                 JOIN Courses ON Quizzes.course_id = Courses.course_id
+                 WHERE Quiz_Questions.question_id = ? AND Quiz_Questions.isArchived = 0 AND Quizzes.isArchived = 0 AND Courses.isArchived = 0`,
+                [questionIDasNum]
+            );
+            if (question.length === 0)
+                return res.status(404).json({ error: 'Question not found' });
+
+            const instructorId = question[0].instructor_id;
+
+            if (currentUserRole !== 'admin') {
+                if (currentUserRole !== 'instructor' || instructorId !== currentUserID)
+                    return res.status(403).json({ error: 'You do not have permission to delete this question' });
+            }
+
+            await connectionPool.query(
+                `UPDATE Quiz_Questions SET isArchived = 1 WHERE question_id = ?`,
+                [questionIDasNum]
+            );
+
+            res.status(200).json({
+                success: true,
+                message: 'Question deleted successfully'
+            });
+        } catch (error) {
+            console.error('Error deleting quiz question:', error);
+            res.status(500).json({ error: 'Internal server error' });
         }
     }
 );

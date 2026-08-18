@@ -28,3 +28,31 @@ export async function createQuizAttempt(quiz_id, student_id, score) {
 export async function getQuizAttemptsForStudent(studentId) {
   return apiRequest(`/students/quiz_attempts/${studentId}`, { method: 'GET' });
 }
+
+export async function getQuizQuestions(quizId) {
+  return apiRequest(`/Quizzes/${quizId}/questions`, { method: 'GET' });
+}
+
+export async function getQuizAttempts(quizId) {
+  return apiRequest(`/Quizzes/${quizId}/attempts`, { method: 'GET' });
+}
+
+export async function updateQuiz(quizId, updates) {
+  return apiRequest(`/Quizzes/${quizId}`, {
+    method: 'PUT',
+    body: updates,
+  });
+}
+
+export async function updateQuizQuestion(questionId, updates) {
+  return apiRequest(`/Quiz_Questions/${questionId}`, {
+    method: 'PUT',
+    body: updates,
+  });
+}
+
+export async function deleteQuizQuestion(questionId) {
+  return apiRequest(`/Quiz_Questions/${questionId}`, {
+    method: 'DELETE',
+  });
+}
