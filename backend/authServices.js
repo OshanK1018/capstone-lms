@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from './apiHelper.js';
 
 const TOKEN_KEY = 'authToken';
 
