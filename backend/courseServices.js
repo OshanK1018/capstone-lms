@@ -49,3 +49,7 @@ export async function getCourseById(courseId) {
 export async function getStudentsInCourse(courseId) {
   return apiRequest(`/courses/students/${courseId}`, { method: 'GET' });
 }
+
+export async function getAllCourses() {
+  return apiRequest('/courses/all', { method: 'GET' });
+}
