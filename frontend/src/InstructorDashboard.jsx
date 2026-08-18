@@ -10,8 +10,8 @@ import {
 } from "../../backend/userServices.js";
 
 import {
-  getCoursesWithInstructor,
-} from "../../backend/instructorServices.js";
+  getCoursesForInstructor,
+} from "../../backend/courseServices.js";
 
 // Icons used inside the dashboard content.
 import {
@@ -21,7 +21,8 @@ import {
   Clock,
 } from "lucide-react";
 
-// Temporary task data until the backend service is connected.
+// Temporary task data until assignment/submission
+// dashboard services are connected.
 const upcomingTasks = [
   {
     id: 1,
@@ -44,7 +45,7 @@ const upcomingTasks = [
 ];
 
 // Temporary values until assignment/submission
-// dashboard services are available.
+// dashboard services are connected.
 const temporaryAssignmentCount = 15;
 const temporaryNeedsGrading = 12;
 
@@ -84,6 +85,7 @@ function normalizeCourse(course, index) {
       course.studentCount ??
       course.student_count ??
       course.total_students ??
+      course.seats_taken ??
       0,
 
     assignments:
@@ -92,22 +94,40 @@ function normalizeCourse(course, index) {
       course.assignment_count ??
       0,
 
+    maxSeats:
+      course.max_seats ??
+      course.maxSeats ??
+      0,
+
+    seatsOpen:
+      course.seats_open ??
+      course.seatsOpen ??
+      0,
+
+    credits:
+      course.credits ??
+      0,
+
     color:
       course.color ??
-      courseColors[index % courseColors.length],
+      courseColors[
+        index % courseColors.length
+      ],
   };
 }
 
 function InstructorDashboard() {
   const navigate = useNavigate();
 
-  const [instructor, setInstructor] = useState({
-    id: null,
-    name: "Instructor",
-    role: "Instructor",
-  });
+  const [instructor, setInstructor] =
+    useState({
+      id: null,
+      name: "Instructor",
+      role: "Instructor",
+    });
 
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] =
+    useState([]);
 
   const [courseCount, setCourseCount] =
     useState(0);
@@ -140,7 +160,14 @@ function InstructorDashboard() {
         return;
       }
 
-      const user = userResult.user;
+      /*
+       * Supports both the older service response
+       * and Tori's new apiRequest response shape.
+       */
+      const user =
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
 
       const instructorID =
         user?.user_id ??
@@ -173,9 +200,10 @@ function InstructorDashboard() {
         return;
       }
 
-      // Load courses assigned to the instructor.
+      // Load courses using Tori's refactored
+      // courseServices.js function.
       const coursesResult =
-        await getCoursesWithInstructor(
+        await getCoursesForInstructor(
           instructorID
         );
 
@@ -189,9 +217,23 @@ function InstructorDashboard() {
         return;
       }
 
+      /*
+       * apiRequest() now returns:
+       *
+       * {
+       *   success: true,
+       *   data: backendResponse
+       * }
+       */
+      const courseData =
+        coursesResult.data ??
+        coursesResult;
+
       const backendCourses =
-        Array.isArray(coursesResult.courses)
-          ? coursesResult.courses
+        Array.isArray(courseData.courses)
+          ? courseData.courses
+          : Array.isArray(courseData)
+          ? courseData
           : [];
 
       const normalizedCourses =
@@ -204,14 +246,30 @@ function InstructorDashboard() {
 
       setCourseCount(
         Number(
-          coursesResult.courses_count ??
+          courseData.course_count ??
+            courseData.courses_count ??
             normalizedCourses.length
         )
       );
 
+      /*
+       * Use the backend's total if provided.
+       * Otherwise calculate it from the courses.
+       */
+      const calculatedStudentTotal =
+        normalizedCourses.reduce(
+          (total, course) =>
+            total +
+            Number(
+              course.students || 0
+            ),
+          0
+        );
+
       setTotalStudents(
         Number(
-          coursesResult.total_students ?? 0
+          courseData.total_students ??
+            calculatedStudentTotal
         )
       );
 
@@ -320,7 +378,8 @@ function InstructorDashboard() {
             style={{
               margin: "20px 0",
               padding: "12px 14px",
-              border: "1px solid #fecaca",
+              border:
+                "1px solid #fecaca",
               borderRadius: "8px",
               background: "#fef2f2",
               color: "#b91c1c",
@@ -377,7 +436,9 @@ function InstructorDashboard() {
             </div>
 
             <div>
-              <span>Assignments</span>
+              <span>
+                Assignments
+              </span>
 
               <strong>
                 {

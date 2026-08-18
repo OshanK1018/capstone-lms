@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   CalendarDays,
@@ -15,216 +19,501 @@ import {
 
 import InstructorSidebar from "./components/InstructorSidebar";
 
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesForInstructor,
+} from "../../backend/courseServices.js";
+
+import {
+  createAnnouncement,
+  getAnnouncementsForCourse,
+} from "../../backend/announcementServices.js";
+
 import "./InstructorAnnouncements.css";
-
-const initialAnnouncements = [
-  {
-    id: 1,
-    title: "Project Submission Reminder",
-    message:
-      "Remember to submit the responsive website project before the deadline.",
-    courseCode: "CSCI 510",
-    courseName: "Web Application Development",
-    audience: "All Students",
-    publishDate: "2026-08-08",
-    publishTime: "09:00",
-    status: "Published",
-  },
-  {
-    id: 2,
-    title: "Sprint Review Schedule",
-    message:
-      "The next sprint review will take place during Thursday's class session.",
-    courseCode: "CSCI 633",
-    courseName: "Software Engineering",
-    audience: "All Students",
-    publishDate: "2026-08-07",
-    publishTime: "10:30",
-    status: "Published",
-  },
-  {
-    id: 3,
-    title: "Quiz Study Materials",
-    message:
-      "Study materials for the machine learning quiz are now available.",
-    courseCode: "CSCI 721",
-    courseName: "Artificial Intelligence",
-    audience: "All Students",
-    publishDate: "2026-08-10",
-    publishTime: "08:00",
-    status: "Scheduled",
-  },
-  {
-    id: 4,
-    title: "Office Hours Update",
-    message:
-      "Office hours will be moved to Friday afternoon for this week.",
-    courseCode: "All Courses",
-    courseName: "All Active Courses",
-    audience: "All Students",
-    publishDate: "",
-    publishTime: "",
-    status: "Draft",
-  },
-];
-
-const temporaryCourses = [
-  {
-    code: "CSCI 510",
-    name: "Web Application Development",
-  },
-  {
-    code: "CSCI 633",
-    name: "Software Engineering",
-  },
-  {
-    code: "CSCI 721",
-    name: "Artificial Intelligence",
-  },
-];
 
 const audienceOptions = [
   "All Students",
   "Enrolled Students",
 ];
 
+function getResponseData(result) {
+  return result?.data ?? result;
+}
+
+function getCoursesFromResult(result) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.courses)
+  ) {
+    return data.courses;
+  }
+
+  return [];
+}
+
+function getAnnouncementsFromResult(
+  result
+) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(
+      data?.announcements
+    )
+  ) {
+    return data.announcements;
+  }
+
+  return [];
+}
+
+function normalizeCourse(
+  course,
+  index
+) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.course_code ??
+      course.courseCode ??
+      `COURSE ${index + 1}`,
+
+    name:
+      course.name ??
+      course.title ??
+      course.course_name ??
+      course.courseName ??
+      "Untitled Course",
+  };
+}
+
+function normalizeAnnouncement(
+  announcement,
+  course
+) {
+  return {
+    ...announcement,
+
+    id:
+      announcement.id ??
+      announcement.announcement_id,
+
+    title:
+      announcement.title ??
+      "Untitled Announcement",
+
+    message:
+      announcement.message ??
+      "",
+
+    courseId:
+      course.id,
+
+    courseCode:
+      course.code,
+
+    courseName:
+      course.name,
+
+    /*
+     * The current announcement service
+     * only persists course_id, title,
+     * and message.
+     */
+    audience:
+      announcement.audience ??
+      "All Students",
+
+    publishDate:
+      announcement.publishDate ??
+      announcement.publish_date ??
+      "",
+
+    publishTime:
+      announcement.publishTime ??
+      announcement.publish_time ??
+      "",
+
+    status:
+      announcement.status ??
+      "Published",
+  };
+}
+
 function InstructorAnnouncements() {
-  const [announcements, setAnnouncements] =
-    useState(initialAnnouncements);
+  const [
+    announcements,
+    setAnnouncements,
+  ] = useState([]);
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const [courses, setCourses] =
+    useState([]);
 
-  const [selectedCourse, setSelectedCourse] =
-    useState("All Courses");
+  const [isLoading, setIsLoading] =
+    useState(true);
 
-  const [selectedStatus, setSelectedStatus] =
-    useState("All Statuses");
-
-  const [showCreateModal, setShowCreateModal] =
+  const [isCreating, setIsCreating] =
     useState(false);
 
-  const [showEditModal, setShowEditModal] =
-    useState(false);
-
-  const [selectedAnnouncement, setSelectedAnnouncement] =
-    useState(null);
-
-  const [formError, setFormError] =
+  const [pageError, setPageError] =
     useState("");
 
-  const [saveMessage, setSaveMessage] =
-    useState("");
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
 
-  const [announcementForm, setAnnouncementForm] =
-    useState({
-      title: "",
-      message: "",
-      courseCode: "",
-      audience: "All Students",
-      status: "Draft",
-      publishDate: "",
-      publishTime: "",
-    });
+  const [
+    selectedCourse,
+    setSelectedCourse,
+  ] = useState("All Courses");
 
-  const courseOptions = useMemo(() => {
-    return [
-      "All Courses",
-      ...new Set(
-        announcements
-          .map(
+  const [
+    selectedStatus,
+    setSelectedStatus,
+  ] = useState("All Statuses");
+
+  const [
+    showCreateModal,
+    setShowCreateModal,
+  ] = useState(false);
+
+  const [
+    showEditModal,
+    setShowEditModal,
+  ] = useState(false);
+
+  const [
+    selectedAnnouncement,
+    setSelectedAnnouncement,
+  ] = useState(null);
+
+  const [
+    formError,
+    setFormError,
+  ] = useState("");
+
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState("");
+
+  const [
+    announcementForm,
+    setAnnouncementForm,
+  ] = useState({
+    title: "",
+    message: "",
+    courseId: "",
+    audience: "All Students",
+    status: "Published",
+    publishDate: "",
+    publishTime: "",
+  });
+
+  /*
+   * Load the real instructor courses,
+   * then retrieve announcements for
+   * each course.
+   */
+  useEffect(() => {
+    async function loadAnnouncementsPage() {
+      setIsLoading(true);
+      setPageError("");
+
+      const userResult =
+        await getCurrentUser();
+
+      if (!userResult.success) {
+        setPageError(
+          userResult.error ||
+            "Unable to load the current instructor."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const user =
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
+
+      const instructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      if (!instructorID) {
+        setPageError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const courseResult =
+        await getCoursesForInstructor(
+          instructorID
+        );
+
+      if (!courseResult.success) {
+        setPageError(
+          courseResult.error ||
+            "Unable to load instructor courses."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        getCoursesFromResult(
+          courseResult
+        );
+
+      const normalizedCourses =
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        );
+
+      setCourses(
+        normalizedCourses
+      );
+
+      const announcementRequests =
+        normalizedCourses.map(
+          async (course) => {
+            if (!course.id) {
+              return [];
+            }
+
+            const result =
+              await getAnnouncementsForCourse(
+                course.id
+              );
+
+            if (!result.success) {
+              return [];
+            }
+
+            const backendAnnouncements =
+              getAnnouncementsFromResult(
+                result
+              );
+
+            return backendAnnouncements.map(
+              (announcement) =>
+                normalizeAnnouncement(
+                  announcement,
+                  course
+                )
+            );
+          }
+        );
+
+      const announcementGroups =
+        await Promise.all(
+          announcementRequests
+        );
+
+      setAnnouncements(
+        announcementGroups.flat()
+      );
+
+      setIsLoading(false);
+    }
+
+    loadAnnouncementsPage();
+  }, []);
+
+  const reloadAnnouncementsForCourse =
+    async (course) => {
+      if (!course?.id) {
+        return;
+      }
+
+      const result =
+        await getAnnouncementsForCourse(
+          course.id
+        );
+
+      if (!result.success) {
+        setPageError(
+          result.error ||
+            "Unable to refresh announcements."
+        );
+
+        return;
+      }
+
+      const backendAnnouncements =
+        getAnnouncementsFromResult(
+          result
+        );
+
+      const normalizedAnnouncements =
+        backendAnnouncements.map(
+          (announcement) =>
+            normalizeAnnouncement(
+              announcement,
+              course
+            )
+        );
+
+      setAnnouncements(
+        (previousAnnouncements) => [
+          ...previousAnnouncements.filter(
+            (announcement) =>
+              String(
+                announcement.courseId
+              ) !==
+              String(course.id)
+          ),
+
+          ...normalizedAnnouncements,
+        ]
+      );
+    };
+
+  const courseOptions =
+    useMemo(() => {
+      return [
+        "All Courses",
+
+        ...new Set(
+          announcements.map(
             (announcement) =>
               announcement.courseCode
           )
-          .filter(
-            (course) =>
-              course !== "All Courses"
-          )
-      ),
-    ];
-  }, [announcements]);
+        ),
+      ];
+    }, [announcements]);
 
-  const filteredAnnouncements = useMemo(() => {
-    const normalizedSearch =
-      searchTerm.toLowerCase().trim();
+  const filteredAnnouncements =
+    useMemo(() => {
+      const normalizedSearch =
+        searchTerm
+          .toLowerCase()
+          .trim();
 
-    return announcements.filter(
-      (announcement) => {
-        const matchesSearch =
-          announcement.title
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          announcement.message
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          announcement.courseCode
-            .toLowerCase()
-            .includes(normalizedSearch);
+      return announcements.filter(
+        (announcement) => {
+          const matchesSearch =
+            announcement.title
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            announcement.message
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            announcement.courseCode
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              );
 
-        const matchesCourse =
-          selectedCourse === "All Courses" ||
-          announcement.courseCode ===
-            selectedCourse;
+          const matchesCourse =
+            selectedCourse ===
+              "All Courses" ||
+            announcement.courseCode ===
+              selectedCourse;
 
-        const matchesStatus =
-          selectedStatus === "All Statuses" ||
-          announcement.status ===
-            selectedStatus;
+          const matchesStatus =
+            selectedStatus ===
+              "All Statuses" ||
+            announcement.status ===
+              selectedStatus;
 
-        return (
-          matchesSearch &&
-          matchesCourse &&
-          matchesStatus
-        );
-      }
-    );
-  }, [
-    announcements,
-    searchTerm,
-    selectedCourse,
-    selectedStatus,
-  ]);
+          return (
+            matchesSearch &&
+            matchesCourse &&
+            matchesStatus
+          );
+        }
+      );
+    }, [
+      announcements,
+      searchTerm,
+      selectedCourse,
+      selectedStatus,
+    ]);
 
   const publishedCount =
     announcements.filter(
       (announcement) =>
-        announcement.status === "Published"
+        announcement.status ===
+        "Published"
     ).length;
 
   const scheduledCount =
     announcements.filter(
       (announcement) =>
-        announcement.status === "Scheduled"
+        announcement.status ===
+        "Scheduled"
     ).length;
 
   const draftCount =
     announcements.filter(
       (announcement) =>
-        announcement.status === "Draft"
+        announcement.status ===
+        "Draft"
     ).length;
 
-  const resetAnnouncementForm = () => {
-    setAnnouncementForm({
-      title: "",
-      message: "",
-      courseCode: "",
-      audience: "All Students",
-      status: "Draft",
-      publishDate: "",
-      publishTime: "",
-    });
+  const resetAnnouncementForm =
+    () => {
+      setAnnouncementForm({
+        title: "",
+        message: "",
+        courseId: "",
+        audience: "All Students",
+        status: "Published",
+        publishDate: "",
+        publishTime: "",
+      });
 
-    setFormError("");
-  };
+      setFormError("");
+    };
 
   const handleAnnouncementFormChange = (
     event
   ) => {
-    const { name, value } = event.target;
+    const { name, value } =
+      event.target;
 
     setAnnouncementForm(
       (previousForm) => ({
         ...previousForm,
+
         [name]: value,
       })
     );
@@ -232,93 +521,95 @@ function InstructorAnnouncements() {
     setFormError("");
   };
 
-  const getCourseName = (courseCode) => {
-    if (courseCode === "All Courses") {
-      return "All Active Courses";
-    }
+  const handleCreateAnnouncement =
+    async (event) => {
+      event.preventDefault();
 
-    const course =
-      temporaryCourses.find(
-        (currentCourse) =>
-          currentCourse.code ===
-          courseCode
-      );
+      setFormError("");
 
-    return course?.name || "";
-  };
+      if (
+        !announcementForm.title.trim() ||
+        !announcementForm.message.trim() ||
+        !announcementForm.courseId
+      ) {
+        setFormError(
+          "Please complete the title, message, and course."
+        );
 
-  const handleCreateAnnouncement = (
-    event
-  ) => {
-    event.preventDefault();
+        return;
+      }
 
-    if (
-      !announcementForm.title.trim() ||
-      !announcementForm.message.trim() ||
-      !announcementForm.courseCode
-    ) {
-      setFormError(
-        "Please complete the title, message, and course."
-      );
-
-      return;
-    }
-
-    if (
-      announcementForm.status ===
-        "Scheduled" &&
-      (!announcementForm.publishDate ||
-        !announcementForm.publishTime)
-    ) {
-      setFormError(
-        "Please choose a date and time for a scheduled announcement."
-      );
-
-      return;
-    }
-
-    const newAnnouncement = {
-      id: Date.now(),
-      title:
-        announcementForm.title.trim(),
-      message:
-        announcementForm.message.trim(),
-      courseCode:
-        announcementForm.courseCode,
-      courseName: getCourseName(
-        announcementForm.courseCode
-      ),
-      audience:
-        announcementForm.audience,
-      status:
-        announcementForm.status,
-      publishDate:
+      if (
         announcementForm.status ===
-        "Draft"
-          ? ""
-          : announcementForm.publishDate ||
-            new Date()
-              .toISOString()
-              .split("T")[0],
-      publishTime:
-        announcementForm.status ===
-        "Draft"
-          ? ""
-          : announcementForm.publishTime ||
-            "09:00",
+          "Scheduled" &&
+        (!announcementForm.publishDate ||
+          !announcementForm.publishTime)
+      ) {
+        setFormError(
+          "Please choose a date and time for a scheduled announcement."
+        );
+
+        return;
+      }
+
+      const selectedCourseInformation =
+        courses.find(
+          (course) =>
+            String(course.id) ===
+            String(
+              announcementForm.courseId
+            )
+        );
+
+      if (
+        !selectedCourseInformation
+      ) {
+        setFormError(
+          "Please select a valid course."
+        );
+
+        return;
+      }
+
+      setIsCreating(true);
+
+      /*
+       * Current service:
+       *
+       * createAnnouncement(
+       *   course_id,
+       *   title,
+       *   message
+       * )
+       */
+      const result =
+        await createAnnouncement(
+          Number(
+            announcementForm.courseId
+          ),
+          announcementForm.title.trim(),
+          announcementForm.message.trim()
+        );
+
+      setIsCreating(false);
+
+      if (!result.success) {
+        setFormError(
+          result.error ||
+            "Unable to create announcement."
+        );
+
+        return;
+      }
+
+      await reloadAnnouncementsForCourse(
+        selectedCourseInformation
+      );
+
+      setShowCreateModal(false);
+
+      resetAnnouncementForm();
     };
-
-    setAnnouncements(
-      (previousAnnouncements) => [
-        ...previousAnnouncements,
-        newAnnouncement,
-      ]
-    );
-
-    setShowCreateModal(false);
-
-    resetAnnouncementForm();
-  };
 
   const handleEditAnnouncement = (
     announcement
@@ -328,17 +619,20 @@ function InstructorAnnouncements() {
     });
 
     setSaveMessage("");
+
     setShowEditModal(true);
   };
 
   const handleEditAnnouncementChange = (
     event
   ) => {
-    const { name, value } = event.target;
+    const { name, value } =
+      event.target;
 
     setSelectedAnnouncement(
       (previousAnnouncement) => ({
         ...previousAnnouncement,
+
         [name]: value,
       })
     );
@@ -346,64 +640,88 @@ function InstructorAnnouncements() {
     setSaveMessage("");
   };
 
-  const handleSaveAnnouncement = () => {
-    if (
-      !selectedAnnouncement.title.trim() ||
-      !selectedAnnouncement.message.trim()
-    ) {
-      setSaveMessage(
-        "Title and message are required."
+  /*
+   * No update announcement service
+   * has been connected yet.
+   */
+  const handleSaveAnnouncement =
+    () => {
+      if (
+        !selectedAnnouncement.title.trim() ||
+        !selectedAnnouncement.message.trim()
+      ) {
+        setSaveMessage(
+          "Title and message are required."
+        );
+
+        return;
+      }
+
+      if (
+        selectedAnnouncement.status ===
+          "Scheduled" &&
+        (!selectedAnnouncement.publishDate ||
+          !selectedAnnouncement.publishTime)
+      ) {
+        setSaveMessage(
+          "Scheduled announcements need a date and time."
+        );
+
+        return;
+      }
+
+      const selectedCourseInformation =
+        courses.find(
+          (course) =>
+            String(course.id) ===
+            String(
+              selectedAnnouncement.courseId
+            )
+        );
+
+      const updatedAnnouncement = {
+        ...selectedAnnouncement,
+
+        courseCode:
+          selectedCourseInformation?.code ??
+          selectedAnnouncement.courseCode,
+
+        courseName:
+          selectedCourseInformation?.name ??
+          selectedAnnouncement.courseName,
+      };
+
+      setAnnouncements(
+        (previousAnnouncements) =>
+          previousAnnouncements.map(
+            (announcement) =>
+              announcement.id ===
+              updatedAnnouncement.id
+                ? updatedAnnouncement
+                : announcement
+          )
       );
 
-      return;
-    }
-
-    if (
-      selectedAnnouncement.status ===
-        "Scheduled" &&
-      (!selectedAnnouncement.publishDate ||
-        !selectedAnnouncement.publishTime)
-    ) {
-      setSaveMessage(
-        "Scheduled announcements need a date and time."
+      setSelectedAnnouncement(
+        updatedAnnouncement
       );
 
-      return;
-    }
-
-    const updatedAnnouncement = {
-      ...selectedAnnouncement,
-      courseName: getCourseName(
-        selectedAnnouncement.courseCode
-      ),
+      setSaveMessage(
+        "Announcement changes saved temporarily."
+      );
     };
 
-    setAnnouncements(
-      (previousAnnouncements) =>
-        previousAnnouncements.map(
-          (announcement) =>
-            announcement.id ===
-            updatedAnnouncement.id
-              ? updatedAnnouncement
-              : announcement
-        )
-    );
-
-    setSelectedAnnouncement(
-      updatedAnnouncement
-    );
-
-    setSaveMessage(
-      "Announcement changes saved temporarily."
-    );
-  };
-
+  /*
+   * There is currently no delete
+   * announcement service, so removing
+   * here only affects frontend state.
+   */
   const handleDeleteAnnouncement = (
     announcement
   ) => {
     const shouldDelete =
       window.confirm(
-        `Delete "${announcement.title}"?`
+        `Remove "${announcement.title}" from this page? This will not delete it from the database.`
       );
 
     if (!shouldDelete) {
@@ -423,11 +741,18 @@ function InstructorAnnouncements() {
   const formatAnnouncementDate = (
     announcement
   ) => {
-    if (!announcement.publishDate) {
-      return "Not published";
+    if (
+      !announcement.publishDate
+    ) {
+      return announcement.status ===
+        "Published"
+        ? "Published"
+        : "Not scheduled";
     }
 
-    if (announcement.publishTime) {
+    if (
+      announcement.publishTime
+    ) {
       return `${announcement.publishDate} at ${announcement.publishTime}`;
     }
 
@@ -445,29 +770,62 @@ function InstructorAnnouncements() {
               Instructor Portal
             </p>
 
-            <h1>Announcements</h1>
+            <h1>
+              Announcements
+            </h1>
 
             <p>
-              Share important updates with
-              students in your courses.
+              Share important updates
+              with students in your
+              courses.
             </p>
           </div>
 
           <button
             className="announcements-primary-button"
             onClick={() =>
-              setShowCreateModal(true)
+              setShowCreateModal(
+                true
+              )
             }
           >
             <Plus size={19} />
+
             Create Announcement
           </button>
         </header>
 
+        {pageError && (
+          <div
+            style={{
+              margin:
+                "20px 0",
+              padding:
+                "12px 14px",
+              border:
+                "1px solid #fecaca",
+              borderRadius:
+                "8px",
+              background:
+                "#fef2f2",
+              color:
+                "#b91c1c",
+              fontSize:
+                "13px",
+              fontWeight:
+                "600",
+            }}
+          >
+            {pageError}
+          </div>
+        )}
+
         <section className="announcement-stat-grid">
           <article className="announcement-stat-card">
             <div className="announcement-stat-icon total">
-              <Megaphone size={22} />
+              <Megaphone
+                size={22}
+              />
             </div>
 
             <div>
@@ -476,7 +834,9 @@ function InstructorAnnouncements() {
               </span>
 
               <strong>
-                {announcements.length}
+                {isLoading
+                  ? "..."
+                  : announcements.length}
               </strong>
             </div>
           </article>
@@ -487,38 +847,54 @@ function InstructorAnnouncements() {
             </div>
 
             <div>
-              <span>Published</span>
+              <span>
+                Published
+              </span>
 
               <strong>
-                {publishedCount}
+                {isLoading
+                  ? "..."
+                  : publishedCount}
               </strong>
             </div>
           </article>
 
           <article className="announcement-stat-card">
             <div className="announcement-stat-icon scheduled">
-              <CalendarDays size={22} />
+              <CalendarDays
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Scheduled</span>
+              <span>
+                Scheduled
+              </span>
 
               <strong>
-                {scheduledCount}
+                {isLoading
+                  ? "..."
+                  : scheduledCount}
               </strong>
             </div>
           </article>
 
           <article className="announcement-stat-card">
             <div className="announcement-stat-icon drafts">
-              <Edit3 size={22} />
+              <Edit3
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Drafts</span>
+              <span>
+                Drafts
+              </span>
 
               <strong>
-                {draftCount}
+                {isLoading
+                  ? "..."
+                  : draftCount}
               </strong>
             </div>
           </article>
@@ -526,13 +902,19 @@ function InstructorAnnouncements() {
 
         <section className="announcement-filter-section">
           <div className="announcement-search-box">
-            <Search size={19} />
+            <Search
+              size={19}
+            />
 
             <input
               type="text"
               placeholder="Search announcements..."
-              value={searchTerm}
-              onChange={(event) =>
+              value={
+                searchTerm
+              }
+              onChange={(
+                event
+              ) =>
                 setSearchTerm(
                   event.target.value
                 )
@@ -542,8 +924,12 @@ function InstructorAnnouncements() {
 
           <div className="announcement-filter-controls">
             <select
-              value={selectedCourse}
-              onChange={(event) =>
+              value={
+                selectedCourse
+              }
+              onChange={(
+                event
+              ) =>
                 setSelectedCourse(
                   event.target.value
                 )
@@ -552,8 +938,12 @@ function InstructorAnnouncements() {
               {courseOptions.map(
                 (course) => (
                   <option
-                    key={course}
-                    value={course}
+                    key={
+                      course
+                    }
+                    value={
+                      course
+                    }
                   >
                     {course}
                   </option>
@@ -562,8 +952,12 @@ function InstructorAnnouncements() {
             </select>
 
             <select
-              value={selectedStatus}
-              onChange={(event) =>
+              value={
+                selectedStatus
+              }
+              onChange={(
+                event
+              ) =>
                 setSelectedStatus(
                   event.target.value
                 )
@@ -596,24 +990,40 @@ function InstructorAnnouncements() {
               </h2>
 
               <p>
-                Showing{" "}
-                {
-                  filteredAnnouncements.length
-                }{" "}
-                of {announcements.length}{" "}
-                announcements
+                {isLoading
+                  ? "Loading announcements..."
+                  : `Showing ${filteredAnnouncements.length} of ${announcements.length} announcements`}
               </p>
             </div>
           </div>
 
-          {filteredAnnouncements.length >
-          0 ? (
+          {isLoading ? (
+            <div className="empty-announcement-message">
+              <Megaphone
+                size={36}
+              />
+
+              <h3>
+                Loading announcements...
+              </h3>
+
+              <p>
+                Retrieving announcements
+                from your courses.
+              </p>
+            </div>
+          ) : filteredAnnouncements.length >
+            0 ? (
             <div className="announcement-card-list">
               {filteredAnnouncements.map(
-                (announcement) => (
+                (
+                  announcement
+                ) => (
                   <article
                     className="announcement-card"
-                    key={announcement.id}
+                    key={
+                      announcement.id
+                    }
                   >
                     <div className="announcement-card-icon">
                       <Megaphone
@@ -646,7 +1056,12 @@ function InstructorAnnouncements() {
                         </div>
 
                         <span
-                          className={`announcement-status ${announcement.status.toLowerCase()}`}
+                          className={`announcement-status ${announcement.status
+                            .toLowerCase()
+                            .replace(
+                              /\s+/g,
+                              "-"
+                            )}`}
                         >
                           {
                             announcement.status
@@ -664,7 +1079,9 @@ function InstructorAnnouncements() {
                         <div className="announcement-metadata">
                           <span>
                             <Users
-                              size={16}
+                              size={
+                                16
+                              }
                             />
 
                             {
@@ -674,7 +1091,9 @@ function InstructorAnnouncements() {
 
                           <span>
                             <CalendarDays
-                              size={16}
+                              size={
+                                16
+                              }
                             />
 
                             {formatAnnouncementDate(
@@ -693,8 +1112,11 @@ function InstructorAnnouncements() {
                             }
                           >
                             <Edit3
-                              size={16}
+                              size={
+                                16
+                              }
                             />
+
                             Edit
                           </button>
 
@@ -707,7 +1129,9 @@ function InstructorAnnouncements() {
                             }
                           >
                             <Trash2
-                              size={17}
+                              size={
+                                17
+                              }
                             />
                           </button>
                         </div>
@@ -719,15 +1143,18 @@ function InstructorAnnouncements() {
             </div>
           ) : (
             <div className="empty-announcement-message">
-              <Megaphone size={36} />
+              <Megaphone
+                size={36}
+              />
 
               <h3>
                 No announcements found
               </h3>
 
               <p>
-                Try changing your search or
-                filter selections.
+                Try changing your
+                search or filter
+                selections.
               </p>
             </div>
           )}
@@ -741,7 +1168,8 @@ function InstructorAnnouncements() {
             <div className="announcement-modal-header">
               <div>
                 <p className="page-label">
-                  Announcement Management
+                  Announcement
+                  Management
                 </p>
 
                 <h2>
@@ -752,7 +1180,10 @@ function InstructorAnnouncements() {
               <button
                 className="announcement-modal-close"
                 onClick={() => {
-                  setShowCreateModal(false);
+                  setShowCreateModal(
+                    false
+                  );
+
                   resetAnnouncementForm();
                 }}
               >
@@ -786,12 +1217,14 @@ function InstructorAnnouncements() {
 
               <div className="announcement-form-grid">
                 <div className="announcement-form-group">
-                  <label>Course *</label>
+                  <label>
+                    Course *
+                  </label>
 
                   <select
-                    name="courseCode"
+                    name="courseId"
                     value={
-                      announcementForm.courseCode
+                      announcementForm.courseId
                     }
                     onChange={
                       handleAnnouncementFormChange
@@ -801,18 +1234,23 @@ function InstructorAnnouncements() {
                       Select course
                     </option>
 
-                    <option value="All Courses">
-                      All Courses
-                    </option>
-
-                    {temporaryCourses.map(
+                    {courses.map(
                       (course) => (
                         <option
-                          key={course.code}
-                          value={course.code}
+                          key={
+                            course.id
+                          }
+                          value={
+                            course.id
+                          }
                         >
-                          {course.code} -{" "}
-                          {course.name}
+                          {
+                            course.code
+                          }{" "}
+                          -{" "}
+                          {
+                            course.name
+                          }
                         </option>
                       )
                     )}
@@ -820,7 +1258,9 @@ function InstructorAnnouncements() {
                 </div>
 
                 <div className="announcement-form-group">
-                  <label>Audience</label>
+                  <label>
+                    Audience
+                  </label>
 
                   <select
                     name="audience"
@@ -832,21 +1272,46 @@ function InstructorAnnouncements() {
                     }
                   >
                     {audienceOptions.map(
-                      (audience) => (
+                      (
+                        audience
+                      ) => (
                         <option
-                          key={audience}
-                          value={audience}
+                          key={
+                            audience
+                          }
+                          value={
+                            audience
+                          }
                         >
-                          {audience}
+                          {
+                            audience
+                          }
                         </option>
                       )
                     )}
                   </select>
+
+                  <p
+                    style={{
+                      margin:
+                        "6px 0 0",
+                      fontSize:
+                        "12px",
+                      color:
+                        "#64748b",
+                    }}
+                  >
+                    Audience is
+                    currently a
+                    frontend-only field.
+                  </p>
                 </div>
               </div>
 
               <div className="announcement-form-group">
-                <label>Message *</label>
+                <label>
+                  Message *
+                </label>
 
                 <textarea
                   name="message"
@@ -862,7 +1327,9 @@ function InstructorAnnouncements() {
               </div>
 
               <div className="announcement-form-group">
-                <label>Status</label>
+                <label>
+                  Status
+                </label>
 
                 <select
                   name="status"
@@ -873,18 +1340,36 @@ function InstructorAnnouncements() {
                     handleAnnouncementFormChange
                   }
                 >
-                  <option value="Draft">
-                    Draft
-                  </option>
-
                   <option value="Published">
                     Publish Now
+                  </option>
+
+                  <option value="Draft">
+                    Draft
                   </option>
 
                   <option value="Scheduled">
                     Schedule
                   </option>
                 </select>
+
+                <p
+                  style={{
+                    margin:
+                      "6px 0 0",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#64748b",
+                  }}
+                >
+                  The current backend
+                  service creates the
+                  announcement
+                  immediately. Draft and
+                  schedule status are
+                  currently UI-only.
+                </p>
               </div>
 
               {announcementForm.status ===
@@ -937,7 +1422,10 @@ function InstructorAnnouncements() {
                   type="button"
                   className="announcement-cancel-button"
                   onClick={() => {
-                    setShowCreateModal(false);
+                    setShowCreateModal(
+                      false
+                    );
+
                     resetAnnouncementForm();
                   }}
                 >
@@ -947,21 +1435,17 @@ function InstructorAnnouncements() {
                 <button
                   type="submit"
                   className="announcement-save-button"
+                  disabled={
+                    isCreating
+                  }
                 >
-                  {announcementForm.status ===
-                  "Published" ? (
-                    <Send size={17} />
-                  ) : (
-                    <Save size={17} />
-                  )}
+                  <Send
+                    size={17}
+                  />
 
-                  {announcementForm.status ===
-                  "Published"
-                    ? "Publish Announcement"
-                    : announcementForm.status ===
-                      "Scheduled"
-                    ? "Schedule Announcement"
-                    : "Save Draft"}
+                  {isCreating
+                    ? "Creating..."
+                    : "Create Announcement"}
                 </button>
               </div>
             </form>
@@ -977,7 +1461,8 @@ function InstructorAnnouncements() {
               <div className="announcement-modal-header">
                 <div>
                   <p className="page-label">
-                    Announcement Management
+                    Announcement
+                    Management
                   </p>
 
                   <h2>
@@ -988,7 +1473,9 @@ function InstructorAnnouncements() {
                 <button
                   className="announcement-modal-close"
                   onClick={() =>
-                    setShowEditModal(false)
+                    setShowEditModal(
+                      false
+                    )
                   }
                 >
                   <X size={22} />
@@ -1014,33 +1501,38 @@ function InstructorAnnouncements() {
 
                 <div className="announcement-form-grid">
                   <div className="announcement-form-group">
-                    <label>Course</label>
+                    <label>
+                      Course
+                    </label>
 
                     <select
-                      name="courseCode"
+                      name="courseId"
                       value={
-                        selectedAnnouncement.courseCode
+                        selectedAnnouncement.courseId
                       }
                       onChange={
                         handleEditAnnouncementChange
                       }
                     >
-                      <option value="All Courses">
-                        All Courses
-                      </option>
-
-                      {temporaryCourses.map(
-                        (course) => (
+                      {courses.map(
+                        (
+                          course
+                        ) => (
                           <option
                             key={
-                              course.code
+                              course.id
                             }
                             value={
-                              course.code
+                              course.id
                             }
                           >
-                            {course.code} -{" "}
-                            {course.name}
+                            {
+                              course.code
+                            }{" "}
+                            -{" "}
+                            {
+                              course.name
+                            }
                           </option>
                         )
                       )}
@@ -1048,7 +1540,9 @@ function InstructorAnnouncements() {
                   </div>
 
                   <div className="announcement-form-group">
-                    <label>Audience</label>
+                    <label>
+                      Audience
+                    </label>
 
                     <select
                       name="audience"
@@ -1060,12 +1554,20 @@ function InstructorAnnouncements() {
                       }
                     >
                       {audienceOptions.map(
-                        (audience) => (
+                        (
+                          audience
+                        ) => (
                           <option
-                            key={audience}
-                            value={audience}
+                            key={
+                              audience
+                            }
+                            value={
+                              audience
+                            }
                           >
-                            {audience}
+                            {
+                              audience
+                            }
                           </option>
                         )
                       )}
@@ -1074,7 +1576,9 @@ function InstructorAnnouncements() {
                 </div>
 
                 <div className="announcement-form-group">
-                  <label>Message</label>
+                  <label>
+                    Message
+                  </label>
 
                   <textarea
                     name="message"
@@ -1089,7 +1593,9 @@ function InstructorAnnouncements() {
                 </div>
 
                 <div className="announcement-form-group">
-                  <label>Status</label>
+                  <label>
+                    Status
+                  </label>
 
                   <select
                     name="status"
@@ -1100,12 +1606,12 @@ function InstructorAnnouncements() {
                       handleEditAnnouncementChange
                     }
                   >
-                    <option value="Draft">
-                      Draft
-                    </option>
-
                     <option value="Published">
                       Published
+                    </option>
+
+                    <option value="Draft">
+                      Draft
                     </option>
 
                     <option value="Scheduled">
@@ -1153,9 +1659,27 @@ function InstructorAnnouncements() {
                   </div>
                 )}
 
+                <p
+                  style={{
+                    margin:
+                      "10px 0",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#64748b",
+                  }}
+                >
+                  Editing is currently
+                  frontend-only because
+                  no update-announcement
+                  service is connected.
+                </p>
+
                 {saveMessage && (
                   <div className="announcement-save-message">
-                    {saveMessage}
+                    {
+                      saveMessage
+                    }
                   </div>
                 )}
 
@@ -1164,7 +1688,9 @@ function InstructorAnnouncements() {
                     type="button"
                     className="announcement-cancel-button"
                     onClick={() =>
-                      setShowEditModal(false)
+                      setShowEditModal(
+                        false
+                      )
                     }
                   >
                     Cancel
@@ -1177,7 +1703,10 @@ function InstructorAnnouncements() {
                       handleSaveAnnouncement
                     }
                   >
-                    <Save size={17} />
+                    <Save
+                      size={17}
+                    />
+
                     Save Changes
                   </button>
                 </div>

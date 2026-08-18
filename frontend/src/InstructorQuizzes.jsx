@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   CheckCircle2,
@@ -16,6 +20,20 @@ import {
 
 import InstructorSidebar from "./components/InstructorSidebar";
 
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesForInstructor,
+} from "../../backend/courseServices.js";
+
+import {
+  createQuiz,
+  createQuizQuestion,
+  getQuizzesForCourse,
+} from "../../backend/quizServices.js";
+
 import "./InstructorQuizzes.css";
 
 const createEmptyQuestion = () => ({
@@ -23,6 +41,7 @@ const createEmptyQuestion = () => ({
   type: "Multiple Choice",
   text: "",
   points: 10,
+
   choices: [
     {
       id: Date.now() + Math.random(),
@@ -35,159 +54,9 @@ const createEmptyQuestion = () => ({
       correct: false,
     },
   ],
+
   shortAnswer: "",
 });
-
-const initialQuizzes = [
-  {
-    id: 1,
-    title: "HTML and CSS Fundamentals",
-    courseCode: "CSCI 510",
-    courseName: "Web Application Development",
-    category: "Quizzes",
-    questions: [
-      {
-        id: 1,
-        type: "Multiple Choice",
-        text: "What does CSS stand for?",
-        points: 5,
-        choices: [
-          {
-            id: 1,
-            text: "Cascading Style Sheets",
-            correct: true,
-          },
-          {
-            id: 2,
-            text: "Computer Style Sheets",
-            correct: false,
-          },
-          {
-            id: 3,
-            text: "Creative Style System",
-            correct: false,
-          },
-        ],
-        shortAnswer: "",
-      },
-      {
-        id: 2,
-        type: "Multiple Answers",
-        text: "Which are JavaScript variable keywords?",
-        points: 10,
-        choices: [
-          {
-            id: 1,
-            text: "let",
-            correct: true,
-          },
-          {
-            id: 2,
-            text: "const",
-            correct: true,
-          },
-          {
-            id: 3,
-            text: "style",
-            correct: false,
-          },
-        ],
-        shortAnswer: "",
-      },
-      {
-        id: 3,
-        type: "Short Answer",
-        text: "What HTML tag creates a hyperlink?",
-        points: 5,
-        choices: [],
-        shortAnswer: "<a>",
-      },
-    ],
-    timeLimit: 30,
-    attempts: 28,
-    totalStudents: 32,
-    status: "Published",
-  },
-  {
-    id: 2,
-    title: "Agile Development Concepts",
-    courseCode: "CSCI 633",
-    courseName: "Software Engineering",
-    category: "Quizzes",
-    questions: [
-      {
-        id: 1,
-        type: "Multiple Choice",
-        text: "Which is an Agile methodology?",
-        points: 10,
-        choices: [
-          {
-            id: 1,
-            text: "Scrum",
-            correct: true,
-          },
-          {
-            id: 2,
-            text: "Waterfall",
-            correct: false,
-          },
-        ],
-        shortAnswer: "",
-      },
-    ],
-    timeLimit: 40,
-    attempts: 19,
-    totalStudents: 28,
-    status: "Published",
-  },
-  {
-    id: 3,
-    title: "Machine Learning Basics",
-    courseCode: "CSCI 721",
-    courseName: "Artificial Intelligence",
-    category: "Quizzes",
-    questions: [
-      {
-        id: 1,
-        type: "Multiple Choice",
-        text: "Which is an example of supervised learning?",
-        points: 10,
-        choices: [
-          {
-            id: 1,
-            text: "Classification",
-            correct: true,
-          },
-          {
-            id: 2,
-            text: "Clustering",
-            correct: false,
-          },
-        ],
-        shortAnswer: "",
-      },
-    ],
-    timeLimit: 25,
-    attempts: 0,
-    totalStudents: 24,
-    status: "Draft",
-  },
-];
-
-const temporaryCourses = [
-  {
-    code: "CSCI 510",
-    name: "Web Application Development",
-  },
-  {
-    code: "CSCI 633",
-    name: "Software Engineering",
-  },
-  {
-    code: "CSCI 721",
-    name: "Artificial Intelligence",
-  },
-];
 
 const temporaryCategories = [
   "Quizzes",
@@ -197,6 +66,11 @@ const temporaryCategories = [
   "Final Exam",
 ];
 
+/*
+ * Attempts remain temporary because the
+ * current service file retrieves attempts
+ * by student, not by quiz.
+ */
 const temporaryAttempts = [
   {
     id: 1,
@@ -224,118 +98,589 @@ const temporaryAttempts = [
   },
 ];
 
+function getResponseData(result) {
+  return result?.data ?? result;
+}
+
+function getCoursesFromResult(result) {
+  const data = getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.courses)) {
+    return data.courses;
+  }
+
+  return [];
+}
+
+function getQuizzesFromResult(result) {
+  const data = getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.quizzes)) {
+    return data.quizzes;
+  }
+
+  return [];
+}
+
+function normalizeCourse(course, index) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.course_code ??
+      course.courseCode ??
+      `COURSE ${index + 1}`,
+
+    name:
+      course.name ??
+      course.title ??
+      course.course_name ??
+      course.courseName ??
+      "Untitled Course",
+
+    students:
+      Number(
+        course.students ??
+          course.student_count ??
+          course.total_students ??
+          course.seats_taken ??
+          0
+      ),
+  };
+}
+
+function normalizeQuestion(
+  question,
+  index
+) {
+  return {
+    ...question,
+
+    id:
+      question.id ??
+      question.question_id ??
+      `question-${index}`,
+
+    type:
+      question.type ??
+      question.question_type ??
+      "Short Answer",
+
+    text:
+      question.text ??
+      question.question_text ??
+      "",
+
+    points:
+      Number(
+        question.points ??
+          question.score ??
+          10
+      ),
+
+    choices:
+      Array.isArray(
+        question.choices
+      )
+        ? question.choices
+        : [],
+
+    shortAnswer:
+      question.shortAnswer ??
+      question.correct_answer ??
+      "",
+  };
+}
+
+function normalizeQuiz(
+  quiz,
+  course
+) {
+  const backendQuestions =
+    Array.isArray(quiz.questions)
+      ? quiz.questions.map(
+          (question, index) =>
+            normalizeQuestion(
+              question,
+              index
+            )
+        )
+      : [];
+
+  return {
+    ...quiz,
+
+    id:
+      quiz.id ??
+      quiz.quiz_id,
+
+    title:
+      quiz.title ??
+      "Untitled Quiz",
+
+    courseId:
+      course.id,
+
+    courseCode:
+      course.code,
+
+    courseName:
+      course.name,
+
+    category:
+      quiz.category ??
+      "Quizzes",
+
+    dueDate:
+      quiz.dueDate ??
+      quiz.due_date ??
+      "",
+
+    questions:
+      backendQuestions,
+
+    questionCount:
+      Number(
+        quiz.question_count ??
+          quiz.questions_count ??
+          backendQuestions.length
+      ),
+
+    /*
+     * These fields are still UI-level
+     * unless the backend happens to
+     * include them.
+     */
+    timeLimit:
+      Number(
+        quiz.timeLimit ??
+          quiz.time_limit ??
+          0
+      ),
+
+    attempts:
+      Number(
+        quiz.attempts ??
+          quiz.attempt_count ??
+          0
+      ),
+
+    totalStudents:
+      Number(
+        course.students ?? 0
+      ),
+
+    status:
+      quiz.status ??
+      "Published",
+  };
+}
+
+function getCorrectAnswer(question) {
+  if (
+    question.type ===
+    "Short Answer"
+  ) {
+    return question.shortAnswer.trim();
+  }
+
+  const correctChoices =
+    question.choices
+      .filter(
+        (choice) => choice.correct
+      )
+      .map((choice) =>
+        choice.text.trim()
+      );
+
+  /*
+   * The current quiz-question service
+   * only accepts one correct_answer field.
+   *
+   * Multiple-answer questions are stored
+   * as one text value separated by " | ".
+   */
+  return correctChoices.join(" | ");
+}
+
+function getCreatedQuizId(result) {
+  const data = getResponseData(result);
+
+  return (
+    data?.quiz_id ??
+    data?.id ??
+    data?.quiz?.quiz_id ??
+    data?.quiz?.id ??
+    null
+  );
+}
+
 function InstructorQuizzes() {
   const [quizzes, setQuizzes] =
-    useState(initialQuizzes);
+    useState([]);
+
+  const [courses, setCourses] =
+    useState([]);
+
+  const [
+    instructorID,
+    setInstructorID,
+  ] = useState(null);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isCreating, setIsCreating] =
+    useState(false);
+
+  const [pageError, setPageError] =
+    useState("");
 
   const [searchTerm, setSearchTerm] =
     useState("");
 
-  const [selectedCourse, setSelectedCourse] =
-    useState("All Courses");
-
-  const [selectedStatus, setSelectedStatus] =
-    useState("All Statuses");
-
-  const [showCreateModal, setShowCreateModal] =
-    useState(false);
-
-  const [showManageModal, setShowManageModal] =
-    useState(false);
-
-  const [selectedQuiz, setSelectedQuiz] =
-    useState(null);
-
-  const [selectedAttempt, setSelectedAttempt] =
-    useState(null);
-
-  const [formError, setFormError] =
-    useState("");
-
-  const [manageError, setManageError] =
-    useState("");
-
-  const [saveMessage, setSaveMessage] =
-    useState("");
-
-  const [quizForm, setQuizForm] = useState({
-    title: "",
-    courseCode: "",
-    category: "",
-    timeLimit: "",
-    status: "Draft",
-  });
-
-  const [questions, setQuestions] = useState([
-    createEmptyQuestion(),
-  ]);
-
-  const courseOptions = useMemo(() => {
-    return [
-      "All Courses",
-      ...new Set(
-        quizzes.map((quiz) => quiz.courseCode)
-      ),
-    ];
-  }, [quizzes]);
-
-  const filteredQuizzes = useMemo(() => {
-    return quizzes.filter((quiz) => {
-      const normalizedSearch =
-        searchTerm.toLowerCase().trim();
-
-      const matchesSearch =
-        quiz.title
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        quiz.courseCode
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        quiz.courseName
-          .toLowerCase()
-          .includes(normalizedSearch);
-
-      const matchesCourse =
-        selectedCourse === "All Courses" ||
-        quiz.courseCode === selectedCourse;
-
-      const matchesStatus =
-        selectedStatus === "All Statuses" ||
-        quiz.status === selectedStatus;
-
-      return (
-        matchesSearch &&
-        matchesCourse &&
-        matchesStatus
-      );
-    });
-  }, [
-    quizzes,
-    searchTerm,
+  const [
     selectedCourse,
+    setSelectedCourse,
+  ] = useState("All Courses");
+
+  const [
     selectedStatus,
-  ]);
+    setSelectedStatus,
+  ] = useState("All Statuses");
 
-  const publishedQuizzes = quizzes.filter(
-    (quiz) => quiz.status === "Published"
-  ).length;
+  const [
+    showCreateModal,
+    setShowCreateModal,
+  ] = useState(false);
 
-  const draftQuizzes = quizzes.filter(
-    (quiz) => quiz.status === "Draft"
-  ).length;
+  const [
+    showManageModal,
+    setShowManageModal,
+  ] = useState(false);
 
-  const totalAttempts = quizzes.reduce(
-    (total, quiz) => total + quiz.attempts,
-    0
-  );
+  const [
+    selectedQuiz,
+    setSelectedQuiz,
+  ] = useState(null);
 
-  const handleQuizFormChange = (event) => {
-    const { name, value } = event.target;
+  const [
+    selectedAttempt,
+    setSelectedAttempt,
+  ] = useState(null);
 
-    setQuizForm((previousForm) => ({
-      ...previousForm,
-      [name]: value,
-    }));
+  const [
+    formError,
+    setFormError,
+  ] = useState("");
+
+  const [
+    manageError,
+    setManageError,
+  ] = useState("");
+
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState("");
+
+  const [quizForm, setQuizForm] =
+    useState({
+      title: "",
+      courseId: "",
+      category: "",
+      dueDate: "",
+      timeLimit: "",
+      status: "Draft",
+    });
+
+  const [questions, setQuestions] =
+    useState([
+      createEmptyQuestion(),
+    ]);
+
+  /*
+   * Load the instructor's real courses,
+   * then load quizzes for each course.
+   */
+  useEffect(() => {
+    async function loadQuizPage() {
+      setIsLoading(true);
+      setPageError("");
+
+      const userResult =
+        await getCurrentUser();
+
+      if (!userResult.success) {
+        setPageError(
+          userResult.error ||
+            "Unable to load the current instructor."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const user =
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
+
+      const currentInstructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      if (!currentInstructorID) {
+        setPageError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      setInstructorID(
+        currentInstructorID
+      );
+
+      const courseResult =
+        await getCoursesForInstructor(
+          currentInstructorID
+        );
+
+      if (!courseResult.success) {
+        setPageError(
+          courseResult.error ||
+            "Unable to load instructor courses."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        getCoursesFromResult(
+          courseResult
+        );
+
+      const normalizedCourses =
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        );
+
+      setCourses(
+        normalizedCourses
+      );
+
+      const quizRequests =
+        normalizedCourses.map(
+          async (course) => {
+            if (!course.id) {
+              return [];
+            }
+
+            const quizResult =
+              await getQuizzesForCourse(
+                course.id
+              );
+
+            if (!quizResult.success) {
+              return [];
+            }
+
+            const backendQuizzes =
+              getQuizzesFromResult(
+                quizResult
+              );
+
+            return backendQuizzes.map(
+              (quiz) =>
+                normalizeQuiz(
+                  quiz,
+                  course
+                )
+            );
+          }
+        );
+
+      const quizGroups =
+        await Promise.all(
+          quizRequests
+        );
+
+      setQuizzes(
+        quizGroups.flat()
+      );
+
+      setIsLoading(false);
+    }
+
+    loadQuizPage();
+  }, []);
+
+  const reloadQuizzesForCourse =
+    async (course) => {
+      if (!course?.id) {
+        return;
+      }
+
+      const result =
+        await getQuizzesForCourse(
+          course.id
+        );
+
+      if (!result.success) {
+        setPageError(
+          result.error ||
+            "Unable to refresh quizzes."
+        );
+
+        return;
+      }
+
+      const backendQuizzes =
+        getQuizzesFromResult(result);
+
+      const normalizedQuizzes =
+        backendQuizzes.map(
+          (quiz) =>
+            normalizeQuiz(
+              quiz,
+              course
+            )
+        );
+
+      setQuizzes(
+        (previousQuizzes) => [
+          ...previousQuizzes.filter(
+            (quiz) =>
+              String(quiz.courseId) !==
+              String(course.id)
+          ),
+
+          ...normalizedQuizzes,
+        ]
+      );
+    };
+
+  const courseOptions =
+    useMemo(() => {
+      return [
+        "All Courses",
+
+        ...new Set(
+          quizzes.map(
+            (quiz) =>
+              quiz.courseCode
+          )
+        ),
+      ];
+    }, [quizzes]);
+
+  const filteredQuizzes =
+    useMemo(() => {
+      return quizzes.filter(
+        (quiz) => {
+          const normalizedSearch =
+            searchTerm
+              .toLowerCase()
+              .trim();
+
+          const matchesSearch =
+            quiz.title
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            quiz.courseCode
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            quiz.courseName
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              );
+
+          const matchesCourse =
+            selectedCourse ===
+              "All Courses" ||
+            quiz.courseCode ===
+              selectedCourse;
+
+          const matchesStatus =
+            selectedStatus ===
+              "All Statuses" ||
+            quiz.status ===
+              selectedStatus;
+
+          return (
+            matchesSearch &&
+            matchesCourse &&
+            matchesStatus
+          );
+        }
+      );
+    }, [
+      quizzes,
+      searchTerm,
+      selectedCourse,
+      selectedStatus,
+    ]);
+
+  const publishedQuizzes =
+    quizzes.filter(
+      (quiz) =>
+        quiz.status === "Published"
+    ).length;
+
+  const draftQuizzes =
+    quizzes.filter(
+      (quiz) =>
+        quiz.status === "Draft"
+    ).length;
+
+  const totalAttempts =
+    quizzes.reduce(
+      (total, quiz) =>
+        total +
+        Number(quiz.attempts || 0),
+      0
+    );
+
+  const handleQuizFormChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
+
+    setQuizForm(
+      (previousForm) => ({
+        ...previousForm,
+
+        [name]: value,
+      })
+    );
 
     setFormError("");
   };
@@ -345,15 +690,19 @@ function InstructorQuizzes() {
     field,
     value
   ) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) =>
-        question.id === questionId
-          ? {
-              ...question,
-              [field]: value,
-            }
-          : question
-      )
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) =>
+            question.id ===
+            questionId
+              ? {
+                  ...question,
+
+                  [field]: value,
+                }
+              : question
+        )
     );
 
     setFormError("");
@@ -363,70 +712,103 @@ function InstructorQuizzes() {
     questionId,
     newType
   ) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) => {
-        if (question.id !== questionId) {
-          return question;
-        }
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) => {
+            if (
+              question.id !==
+              questionId
+            ) {
+              return question;
+            }
 
-        if (newType === "Short Answer") {
-          return {
-            ...question,
-            type: newType,
-            choices: [],
-            shortAnswer: "",
-          };
-        }
+            if (
+              newType ===
+              "Short Answer"
+            ) {
+              return {
+                ...question,
 
-        return {
-          ...question,
-          type: newType,
-          shortAnswer: "",
-          choices:
-            question.choices.length >= 2
-              ? question.choices
-              : [
-                  {
-                    id:
-                      Date.now() +
-                      Math.random(),
-                    text: "",
-                    correct: true,
-                  },
-                  {
-                    id:
-                      Date.now() +
-                      Math.random(),
-                    text: "",
-                    correct: false,
-                  },
-                ],
-        };
-      })
+                type: newType,
+
+                choices: [],
+
+                shortAnswer: "",
+              };
+            }
+
+            return {
+              ...question,
+
+              type: newType,
+
+              shortAnswer: "",
+
+              choices:
+                question.choices
+                  .length >= 2
+                  ? question.choices
+                  : [
+                      {
+                        id:
+                          Date.now() +
+                          Math.random(),
+
+                        text: "",
+
+                        correct:
+                          true,
+                      },
+
+                      {
+                        id:
+                          Date.now() +
+                          Math.random(),
+
+                        text: "",
+
+                        correct:
+                          false,
+                      },
+                    ],
+            };
+          }
+        )
     );
 
     setFormError("");
   };
 
-  const addChoice = (questionId) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) =>
-        question.id === questionId
-          ? {
-              ...question,
-              choices: [
-                ...question.choices,
-                {
-                  id:
-                    Date.now() +
-                    Math.random(),
-                  text: "",
-                  correct: false,
-                },
-              ],
-            }
-          : question
-      )
+  const addChoice = (
+    questionId
+  ) => {
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) =>
+            question.id ===
+            questionId
+              ? {
+                  ...question,
+
+                  choices: [
+                    ...question.choices,
+
+                    {
+                      id:
+                        Date.now() +
+                        Math.random(),
+
+                      text: "",
+
+                      correct:
+                        false,
+                    },
+                  ],
+                }
+              : question
+        )
     );
   };
 
@@ -434,24 +816,36 @@ function InstructorQuizzes() {
     questionId,
     choiceId
   ) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) => {
-        if (question.id !== questionId) {
-          return question;
-        }
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) => {
+            if (
+              question.id !==
+              questionId
+            ) {
+              return question;
+            }
 
-        if (question.choices.length <= 2) {
-          return question;
-        }
+            if (
+              question.choices
+                .length <= 2
+            ) {
+              return question;
+            }
 
-        return {
-          ...question,
-          choices: question.choices.filter(
-            (choice) =>
-              choice.id !== choiceId
-          ),
-        };
-      })
+            return {
+              ...question,
+
+              choices:
+                question.choices.filter(
+                  (choice) =>
+                    choice.id !==
+                    choiceId
+                ),
+            };
+          }
+        )
     );
   };
 
@@ -460,23 +854,30 @@ function InstructorQuizzes() {
     choiceId,
     value
   ) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) =>
-        question.id === questionId
-          ? {
-              ...question,
-              choices: question.choices.map(
-                (choice) =>
-                  choice.id === choiceId
-                    ? {
-                        ...choice,
-                        text: value,
-                      }
-                    : choice
-              ),
-            }
-          : question
-      )
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) =>
+            question.id ===
+            questionId
+              ? {
+                  ...question,
+
+                  choices:
+                    question.choices.map(
+                      (choice) =>
+                        choice.id ===
+                        choiceId
+                          ? {
+                              ...choice,
+
+                              text: value,
+                            }
+                          : choice
+                    ),
+                }
+              : question
+        )
     );
   };
 
@@ -484,51 +885,69 @@ function InstructorQuizzes() {
     questionId,
     choiceId
   ) => {
-    setQuestions((previousQuestions) =>
-      previousQuestions.map((question) => {
-        if (question.id !== questionId) {
-          return question;
-        }
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.map(
+          (question) => {
+            if (
+              question.id !==
+              questionId
+            ) {
+              return question;
+            }
 
-        if (
-          question.type ===
-          "Multiple Choice"
-        ) {
-          return {
-            ...question,
-            choices: question.choices.map(
-              (choice) => ({
-                ...choice,
-                correct:
-                  choice.id === choiceId,
-              })
-            ),
-          };
-        }
+            if (
+              question.type ===
+              "Multiple Choice"
+            ) {
+              return {
+                ...question,
 
-        return {
-          ...question,
-          choices: question.choices.map(
-            (choice) =>
-              choice.id === choiceId
-                ? {
-                    ...choice,
-                    correct:
-                      !choice.correct,
-                  }
-                : choice
-          ),
-        };
-      })
+                choices:
+                  question.choices.map(
+                    (choice) => ({
+                      ...choice,
+
+                      correct:
+                        choice.id ===
+                        choiceId,
+                    })
+                  ),
+              };
+            }
+
+            return {
+              ...question,
+
+              choices:
+                question.choices.map(
+                  (choice) =>
+                    choice.id ===
+                    choiceId
+                      ? {
+                          ...choice,
+
+                          correct:
+                            !choice.correct,
+                        }
+                      : choice
+                ),
+            };
+          }
+        )
     );
   };
 
-  const handleAddQuestion = () => {
-    setQuestions((previousQuestions) => [
-      ...previousQuestions,
-      createEmptyQuestion(),
-    ]);
-  };
+  const handleAddQuestion =
+    () => {
+      setQuestions(
+        (previousQuestions) => [
+          ...previousQuestions,
+
+          createEmptyQuestion(),
+        ]
+      );
+    };
 
   const handleRemoveQuestion = (
     questionId
@@ -537,19 +956,22 @@ function InstructorQuizzes() {
       return;
     }
 
-    setQuestions((previousQuestions) =>
-      previousQuestions.filter(
-        (question) =>
-          question.id !== questionId
-      )
+    setQuestions(
+      (previousQuestions) =>
+        previousQuestions.filter(
+          (question) =>
+            question.id !==
+            questionId
+        )
     );
   };
 
   const resetCreateQuiz = () => {
     setQuizForm({
       title: "",
-      courseCode: "",
+      courseId: "",
       category: "",
+      dueDate: "",
       timeLimit: "",
       status: "Draft",
     });
@@ -571,7 +993,9 @@ function InstructorQuizzes() {
         }
 
         if (
-          Number(question.points) <= 0
+          Number(
+            question.points
+          ) <= 0
         ) {
           return true;
         }
@@ -584,7 +1008,8 @@ function InstructorQuizzes() {
         }
 
         if (
-          question.choices.length < 2
+          question.choices.length <
+          2
         ) {
           return true;
         }
@@ -600,7 +1025,8 @@ function InstructorQuizzes() {
 
         if (
           !question.choices.some(
-            (choice) => choice.correct
+            (choice) =>
+              choice.correct
           )
         ) {
           return true;
@@ -611,86 +1037,196 @@ function InstructorQuizzes() {
     );
   };
 
-  const handleCreateQuiz = (event) => {
-    event.preventDefault();
+  /*
+   * Create the quiz through quizServices,
+   * then create the quiz's questions.
+   */
+  const handleCreateQuiz =
+    async (event) => {
+      event.preventDefault();
 
-    if (
-      !quizForm.title.trim() ||
-      !quizForm.courseCode ||
-      !quizForm.category ||
-      !quizForm.timeLimit
-    ) {
-      setFormError(
-        "Please complete all required quiz fields."
+      setFormError("");
+
+      if (
+        !quizForm.title.trim() ||
+        !quizForm.courseId ||
+        !quizForm.category ||
+        !quizForm.dueDate
+      ) {
+        setFormError(
+          "Please complete all required quiz fields."
+        );
+
+        return;
+      }
+
+      if (
+        questionsAreInvalid(
+          questions
+        )
+      ) {
+        setFormError(
+          "Complete every question, answer choice, and correct answer."
+        );
+
+        return;
+      }
+
+      const courseInformation =
+        courses.find(
+          (course) =>
+            String(course.id) ===
+            String(
+              quizForm.courseId
+            )
+        );
+
+      if (!courseInformation) {
+        setFormError(
+          "Please select a valid course."
+        );
+
+        return;
+      }
+
+      setIsCreating(true);
+
+      const quizResult =
+        await createQuiz(
+          Number(
+            quizForm.courseId
+          ),
+          quizForm.title.trim(),
+          quizForm.dueDate
+        );
+
+      if (!quizResult.success) {
+        setIsCreating(false);
+
+        setFormError(
+          quizResult.error ||
+            "Unable to create quiz."
+        );
+
+        return;
+      }
+
+      const createdQuizID =
+        getCreatedQuizId(
+          quizResult
+        );
+
+      /*
+       * createQuizQuestion() requires
+       * the new quiz ID.
+       */
+      if (createdQuizID) {
+        for (
+          const question of questions
+        ) {
+          const correctAnswer =
+            getCorrectAnswer(
+              question
+            );
+
+          const questionResult =
+            await createQuizQuestion(
+              Number(
+                createdQuizID
+              ),
+              question.text.trim(),
+              correctAnswer,
+              Number(
+                question.points
+              )
+            );
+
+          if (
+            !questionResult.success
+          ) {
+            setIsCreating(
+              false
+            );
+
+            setFormError(
+              questionResult.error ||
+                "The quiz was created, but one or more questions could not be saved."
+            );
+
+            await reloadQuizzesForCourse(
+              courseInformation
+            );
+
+            return;
+          }
+        }
+      } else {
+        /*
+         * If the endpoint created the quiz
+         * but did not return its ID, we
+         * cannot safely attach questions.
+         */
+        setIsCreating(false);
+
+        await reloadQuizzesForCourse(
+          courseInformation
+        );
+
+        setFormError(
+          "The quiz was created, but the backend response did not include a quiz ID, so its questions could not be attached."
+        );
+
+        return;
+      }
+
+      await reloadQuizzesForCourse(
+        courseInformation
       );
 
-      return;
-    }
+      setIsCreating(false);
 
-    if (questionsAreInvalid(questions)) {
-      setFormError(
-        "Complete every question, answer choice, and correct answer."
+      setShowCreateModal(
+        false
       );
 
-      return;
-    }
-
-    const courseInformation =
-      temporaryCourses.find(
-        (course) =>
-          course.code ===
-          quizForm.courseCode
-      );
-
-    const newQuiz = {
-      id: Date.now(),
-      title: quizForm.title.trim(),
-      courseCode:
-        quizForm.courseCode,
-      courseName:
-        courseInformation?.name || "",
-      category:
-        quizForm.category,
-      questions,
-      timeLimit: Number(
-        quizForm.timeLimit
-      ),
-      attempts: 0,
-      totalStudents: 0,
-      status:
-        quizForm.status,
+      resetCreateQuiz();
     };
 
-    setQuizzes((previousQuizzes) => [
-      ...previousQuizzes,
-      newQuiz,
-    ]);
-
-    setShowCreateModal(false);
-
-    resetCreateQuiz();
-  };
-
-  const handleManageQuiz = (quiz) => {
+  const handleManageQuiz = (
+    quiz
+  ) => {
     setSelectedQuiz({
       ...quiz,
 
-      questions: quiz.questions.map(
-        (question) => ({
-          ...question,
+      questions:
+        Array.isArray(
+          quiz.questions
+        )
+          ? quiz.questions.map(
+              (question) => ({
+                ...question,
 
-          choices: question.choices.map(
-            (choice) => ({
-              ...choice,
-            })
-          ),
-        })
-      ),
+                choices:
+                  Array.isArray(
+                    question.choices
+                  )
+                    ? question.choices.map(
+                        (choice) => ({
+                          ...choice,
+                        })
+                      )
+                    : [],
+              })
+            )
+          : [],
     });
 
     setSelectedAttempt(null);
+
     setSaveMessage("");
+
     setManageError("");
+
     setShowManageModal(true);
   };
 
@@ -703,6 +1239,7 @@ function InstructorQuizzes() {
     setSelectedQuiz(
       (previousQuiz) => ({
         ...previousQuiz,
+
         [name]: value,
       })
     );
@@ -723,10 +1260,13 @@ function InstructorQuizzes() {
         questions:
           previousQuiz.questions.map(
             (question) =>
-              question.id === questionId
+              question.id ===
+              questionId
                 ? {
                     ...question,
-                    [field]: value,
+
+                    [field]:
+                      value,
                   }
                 : question
           ),
@@ -761,16 +1301,23 @@ function InstructorQuizzes() {
               ) {
                 return {
                   ...question,
+
                   type: newType,
+
                   choices: [],
-                  shortAnswer: "",
+
+                  shortAnswer:
+                    "",
                 };
               }
 
               return {
                 ...question,
+
                 type: newType,
+
                 shortAnswer: "",
+
                 choices:
                   question.choices
                     .length >= 2
@@ -780,15 +1327,22 @@ function InstructorQuizzes() {
                           id:
                             Date.now() +
                             Math.random(),
+
                           text: "",
-                          correct: true,
+
+                          correct:
+                            true,
                         },
+
                         {
                           id:
                             Date.now() +
                             Math.random(),
+
                           text: "",
-                          correct: false,
+
+                          correct:
+                            false,
                         },
                       ],
               };
@@ -830,6 +1384,7 @@ function InstructorQuizzes() {
                       choiceId
                         ? {
                             ...choice,
+
                             text: value,
                           }
                         : choice
@@ -916,7 +1471,8 @@ function InstructorQuizzes() {
         questions:
           previousQuiz.questions.map(
             (question) =>
-              question.id === questionId
+              question.id ===
+              questionId
                 ? {
                     ...question,
 
@@ -927,8 +1483,11 @@ function InstructorQuizzes() {
                         id:
                           Date.now() +
                           Math.random(),
+
                         text: "",
-                        correct: false,
+
+                        correct:
+                          false,
                       },
                     ],
                   }
@@ -979,27 +1538,29 @@ function InstructorQuizzes() {
     );
   };
 
-  const handleManageAddQuestion = () => {
-    setSelectedQuiz(
-      (previousQuiz) => ({
-        ...previousQuiz,
+  const handleManageAddQuestion =
+    () => {
+      setSelectedQuiz(
+        (previousQuiz) => ({
+          ...previousQuiz,
 
-        questions: [
-          ...previousQuiz.questions,
-          createEmptyQuestion(),
-        ],
-      })
-    );
+          questions: [
+            ...previousQuiz.questions,
 
-    setSaveMessage("");
-  };
+            createEmptyQuestion(),
+          ],
+        })
+      );
+
+      setSaveMessage("");
+    };
 
   const handleManageRemoveQuestion = (
     questionId
   ) => {
     if (
-      selectedQuiz.questions.length ===
-      1
+      selectedQuiz.questions
+        .length === 1
     ) {
       return;
     }
@@ -1011,7 +1572,8 @@ function InstructorQuizzes() {
         questions:
           previousQuiz.questions.filter(
             (question) =>
-              question.id !== questionId
+              question.id !==
+              questionId
           ),
       })
     );
@@ -1019,12 +1581,15 @@ function InstructorQuizzes() {
     setSaveMessage("");
   };
 
+  /*
+   * No update-quiz service is currently
+   * connected, so Manage Quiz changes
+   * remain frontend-only.
+   */
   const handleSaveQuiz = () => {
     if (
       !selectedQuiz.title.trim() ||
-      !selectedQuiz.courseCode ||
-      !selectedQuiz.category ||
-      !selectedQuiz.timeLimit
+      !selectedQuiz.courseId
     ) {
       setManageError(
         "Please complete all required quiz fields."
@@ -1034,6 +1599,8 @@ function InstructorQuizzes() {
     }
 
     if (
+      selectedQuiz.questions
+        .length > 0 &&
       questionsAreInvalid(
         selectedQuiz.questions
       )
@@ -1045,33 +1612,30 @@ function InstructorQuizzes() {
       return;
     }
 
-    const courseInformation =
-      temporaryCourses.find(
-        (course) =>
-          course.code ===
-          selectedQuiz.courseCode
-      );
-
     const updatedQuiz = {
       ...selectedQuiz,
 
-      courseName:
-        courseInformation?.name || "",
-
-      timeLimit: Number(
-        selectedQuiz.timeLimit
-      ),
+      timeLimit:
+        Number(
+          selectedQuiz.timeLimit ||
+            0
+        ),
     };
 
-    setQuizzes((previousQuizzes) =>
-      previousQuizzes.map((quiz) =>
-        quiz.id === updatedQuiz.id
-          ? updatedQuiz
-          : quiz
-      )
+    setQuizzes(
+      (previousQuizzes) =>
+        previousQuizzes.map(
+          (quiz) =>
+            quiz.id ===
+            updatedQuiz.id
+              ? updatedQuiz
+              : quiz
+        )
     );
 
-    setSelectedQuiz(updatedQuiz);
+    setSelectedQuiz(
+      updatedQuiz
+    );
 
     setManageError("");
 
@@ -1094,15 +1658,18 @@ function InstructorQuizzes() {
             <h1>Quizzes</h1>
 
             <p>
-              Create, publish, and manage
-              quizzes for your courses.
+              Create, publish, and
+              manage quizzes for your
+              courses.
             </p>
           </div>
 
           <button
             className="quizzes-primary-button"
             onClick={() =>
-              setShowCreateModal(true)
+              setShowCreateModal(
+                true
+              )
             }
           >
             <Plus size={19} />
@@ -1110,45 +1677,81 @@ function InstructorQuizzes() {
           </button>
         </header>
 
+        {pageError && (
+          <div
+            style={{
+              margin: "20px 0",
+              padding: "12px 14px",
+              border:
+                "1px solid #fecaca",
+              borderRadius: "8px",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              fontSize: "13px",
+              fontWeight: "600",
+            }}
+          >
+            {pageError}
+          </div>
+        )}
+
         <section className="quiz-stat-grid">
           <article className="quiz-stat-card">
             <div className="quiz-stat-icon total">
-              <CircleHelp size={22} />
+              <CircleHelp
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Total Quizzes</span>
+              <span>
+                Total Quizzes
+              </span>
 
               <strong>
-                {quizzes.length}
+                {isLoading
+                  ? "..."
+                  : quizzes.length}
               </strong>
             </div>
           </article>
 
           <article className="quiz-stat-card">
             <div className="quiz-stat-icon published">
-              <CheckCircle2 size={22} />
+              <CheckCircle2
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Published</span>
+              <span>
+                Published
+              </span>
 
               <strong>
-                {publishedQuizzes}
+                {isLoading
+                  ? "..."
+                  : publishedQuizzes}
               </strong>
             </div>
           </article>
 
           <article className="quiz-stat-card">
             <div className="quiz-stat-icon draft">
-              <FileEdit size={22} />
+              <FileEdit
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Drafts</span>
+              <span>
+                Drafts
+              </span>
 
               <strong>
-                {draftQuizzes}
+                {isLoading
+                  ? "..."
+                  : draftQuizzes}
               </strong>
             </div>
           </article>
@@ -1159,10 +1762,14 @@ function InstructorQuizzes() {
             </div>
 
             <div>
-              <span>Total Attempts</span>
+              <span>
+                Total Attempts
+              </span>
 
               <strong>
-                {totalAttempts}
+                {isLoading
+                  ? "..."
+                  : totalAttempts}
               </strong>
             </div>
           </article>
@@ -1186,7 +1793,9 @@ function InstructorQuizzes() {
 
           <div className="quiz-filter-controls">
             <select
-              value={selectedCourse}
+              value={
+                selectedCourse
+              }
               onChange={(event) =>
                 setSelectedCourse(
                   event.target.value
@@ -1206,7 +1815,9 @@ function InstructorQuizzes() {
             </select>
 
             <select
-              value={selectedStatus}
+              value={
+                selectedStatus
+              }
               onChange={(event) =>
                 setSelectedStatus(
                   event.target.value
@@ -1235,17 +1846,35 @@ function InstructorQuizzes() {
         <section className="quiz-list-panel">
           <div className="quiz-list-heading">
             <div>
-              <h2>All Quizzes</h2>
+              <h2>
+                All Quizzes
+              </h2>
 
               <p>
-                Showing{" "}
-                {filteredQuizzes.length} of{" "}
-                {quizzes.length} quizzes
+                {isLoading
+                  ? "Loading quizzes..."
+                  : `Showing ${filteredQuizzes.length} of ${quizzes.length} quizzes`}
               </p>
             </div>
           </div>
 
-          {filteredQuizzes.length > 0 ? (
+          {isLoading ? (
+            <div className="empty-quiz-message">
+              <CircleHelp
+                size={36}
+              />
+
+              <h3>
+                Loading quizzes...
+              </h3>
+
+              <p>
+                Retrieving quizzes from
+                your courses.
+              </p>
+            </div>
+          ) : filteredQuizzes.length >
+            0 ? (
             <div className="quiz-table-wrapper">
               <table className="quiz-table">
                 <thead>
@@ -1253,7 +1882,7 @@ function InstructorQuizzes() {
                     <th>Quiz</th>
                     <th>Course</th>
                     <th>Questions</th>
-                    <th>Time Limit</th>
+                    <th>Due Date</th>
                     <th>Attempts</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -1263,22 +1892,32 @@ function InstructorQuizzes() {
                 <tbody>
                   {filteredQuizzes.map(
                     (quiz) => (
-                      <tr key={quiz.id}>
+                      <tr
+                        key={
+                          quiz.id
+                        }
+                      >
                         <td>
                           <div className="quiz-name-cell">
                             <div className="quiz-file-icon">
                               <CircleHelp
-                                size={19}
+                                size={
+                                  19
+                                }
                               />
                             </div>
 
                             <div>
                               <strong>
-                                {quiz.title}
+                                {
+                                  quiz.title
+                                }
                               </strong>
 
                               <span>
-                                {quiz.category}
+                                {
+                                  quiz.category
+                                }
                               </span>
                             </div>
                           </div>
@@ -1302,6 +1941,7 @@ function InstructorQuizzes() {
 
                         <td>
                           {
+                            quiz.questionCount ??
                             quiz.questions
                               .length
                           }
@@ -1310,14 +1950,14 @@ function InstructorQuizzes() {
                         <td>
                           <div className="quiz-time-cell">
                             <Clock
-                              size={17}
+                              size={
+                                17
+                              }
                             />
 
                             <span>
-                              {
-                                quiz.timeLimit
-                              }{" "}
-                              minutes
+                              {quiz.dueDate ||
+                                "Not set"}
                             </span>
                           </div>
                         </td>
@@ -1325,7 +1965,10 @@ function InstructorQuizzes() {
                         <td>
                           <div className="quiz-attempt-cell">
                             <span>
-                              {quiz.attempts}/
+                              {
+                                quiz.attempts
+                              }
+                              /
                               {
                                 quiz.totalStudents
                               }
@@ -1352,7 +1995,12 @@ function InstructorQuizzes() {
 
                         <td>
                           <span
-                            className={`quiz-status ${quiz.status.toLowerCase()}`}
+                            className={`quiz-status ${quiz.status
+                              .toLowerCase()
+                              .replace(
+                                /\s+/g,
+                                "-"
+                              )}`}
                           >
                             {
                               quiz.status
@@ -1380,15 +2028,17 @@ function InstructorQuizzes() {
             </div>
           ) : (
             <div className="empty-quiz-message">
-              <CircleHelp size={36} />
+              <CircleHelp
+                size={36}
+              />
 
               <h3>
                 No quizzes found
               </h3>
 
               <p>
-                Try changing your search or
-                filter selections.
+                Try changing your search
+                or filter selections.
               </p>
             </div>
           )}
@@ -1405,13 +2055,18 @@ function InstructorQuizzes() {
                   Quiz Builder
                 </p>
 
-                <h2>Create Quiz</h2>
+                <h2>
+                  Create Quiz
+                </h2>
               </div>
 
               <button
                 className="quiz-modal-close"
                 onClick={() => {
-                  setShowCreateModal(false);
+                  setShowCreateModal(
+                    false
+                  );
+
                   resetCreateQuiz();
                 }}
               >
@@ -1421,7 +2076,9 @@ function InstructorQuizzes() {
 
             <form
               className="quiz-builder-form"
-              onSubmit={handleCreateQuiz}
+              onSubmit={
+                handleCreateQuiz
+              }
             >
               <div className="quiz-form-group">
                 <label>
@@ -1430,7 +2087,9 @@ function InstructorQuizzes() {
 
                 <input
                   name="title"
-                  value={quizForm.title}
+                  value={
+                    quizForm.title
+                  }
                   placeholder="Enter quiz title"
                   onChange={
                     handleQuizFormChange
@@ -1440,12 +2099,14 @@ function InstructorQuizzes() {
 
               <div className="quiz-form-grid">
                 <div className="quiz-form-group">
-                  <label>Course *</label>
+                  <label>
+                    Course *
+                  </label>
 
                   <select
-                    name="courseCode"
+                    name="courseId"
                     value={
-                      quizForm.courseCode
+                      quizForm.courseId
                     }
                     onChange={
                       handleQuizFormChange
@@ -1455,14 +2116,23 @@ function InstructorQuizzes() {
                       Select course
                     </option>
 
-                    {temporaryCourses.map(
+                    {courses.map(
                       (course) => (
                         <option
-                          key={course.code}
-                          value={course.code}
+                          key={
+                            course.id
+                          }
+                          value={
+                            course.id
+                          }
                         >
-                          {course.code} -{" "}
-                          {course.name}
+                          {
+                            course.code
+                          }{" "}
+                          -{" "}
+                          {
+                            course.name
+                          }
                         </option>
                       )
                     )}
@@ -1490,10 +2160,16 @@ function InstructorQuizzes() {
                     {temporaryCategories.map(
                       (category) => (
                         <option
-                          key={category}
-                          value={category}
+                          key={
+                            category
+                          }
+                          value={
+                            category
+                          }
                         >
-                          {category}
+                          {
+                            category
+                          }
                         </option>
                       )
                     )}
@@ -1504,7 +2180,24 @@ function InstructorQuizzes() {
               <div className="quiz-form-grid">
                 <div className="quiz-form-group">
                   <label>
-                    Time Limit *
+                    Due Date *
+                  </label>
+
+                  <input
+                    name="dueDate"
+                    type="date"
+                    value={
+                      quizForm.dueDate
+                    }
+                    onChange={
+                      handleQuizFormChange
+                    }
+                  />
+                </div>
+
+                <div className="quiz-form-group">
+                  <label>
+                    Time Limit
                   </label>
 
                   <input
@@ -1519,38 +2212,72 @@ function InstructorQuizzes() {
                       handleQuizFormChange
                     }
                   />
-                </div>
 
-                <div className="quiz-form-group">
-                  <label>Status</label>
-
-                  <select
-                    name="status"
-                    value={quizForm.status}
-                    onChange={
-                      handleQuizFormChange
-                    }
+                  <p
+                    style={{
+                      margin:
+                        "6px 0 0",
+                      fontSize:
+                        "12px",
+                      color:
+                        "#64748b",
+                    }}
                   >
-                    <option value="Draft">
-                      Draft
-                    </option>
-
-                    <option value="Published">
-                      Published
-                    </option>
-                  </select>
+                    Time limit is
+                    currently UI-only.
+                  </p>
                 </div>
+              </div>
+
+              <div className="quiz-form-group">
+                <label>Status</label>
+
+                <select
+                  name="status"
+                  value={
+                    quizForm.status
+                  }
+                  onChange={
+                    handleQuizFormChange
+                  }
+                >
+                  <option value="Draft">
+                    Draft
+                  </option>
+
+                  <option value="Published">
+                    Published
+                  </option>
+                </select>
+
+                <p
+                  style={{
+                    margin:
+                      "6px 0 0",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#64748b",
+                  }}
+                >
+                  Status is
+                  currently UI-only.
+                </p>
               </div>
 
               <section className="quiz-question-section">
                 <div className="quiz-question-header">
                   <div>
-                    <h3>Questions</h3>
+                    <h3>
+                      Questions
+                    </h3>
 
                     <p>
-                      Create multiple-choice,
-                      multiple-answer, or
-                      short-answer questions.
+                      Create
+                      multiple-choice,
+                      multiple-answer,
+                      or short-answer
+                      questions.
                     </p>
                   </div>
 
@@ -1561,16 +2288,24 @@ function InstructorQuizzes() {
                       handleAddQuestion
                     }
                   >
-                    <Plus size={17} />
+                    <Plus
+                      size={17}
+                    />
+
                     Add Question
                   </button>
                 </div>
 
                 {questions.map(
-                  (question, index) => (
+                  (
+                    question,
+                    index
+                  ) => (
                     <article
                       className="quiz-question-card"
-                      key={question.id}
+                      key={
+                        question.id
+                      }
                     >
                       <div className="quiz-question-card-header">
                         <h4>
@@ -1592,7 +2327,9 @@ function InstructorQuizzes() {
                           }
                         >
                           <Trash2
-                            size={17}
+                            size={
+                              17
+                            }
                           />
                         </button>
                       </div>
@@ -1612,21 +2349,25 @@ function InstructorQuizzes() {
                             ) =>
                               changeQuestionType(
                                 question.id,
-                                event.target
+                                event
+                                  .target
                                   .value
                               )
                             }
                           >
                             <option value="Multiple Choice">
-                              Multiple Choice
+                              Multiple
+                              Choice
                             </option>
 
                             <option value="Multiple Answers">
-                              Multiple Answers
+                              Multiple
+                              Answers
                             </option>
 
                             <option value="Short Answer">
-                              Short Answer
+                              Short
+                              Answer
                             </option>
                           </select>
                         </div>
@@ -1648,7 +2389,8 @@ function InstructorQuizzes() {
                               updateQuestion(
                                 question.id,
                                 "points",
-                                event.target
+                                event
+                                  .target
                                   .value
                               )
                             }
@@ -1672,7 +2414,8 @@ function InstructorQuizzes() {
                             updateQuestion(
                               question.id,
                               "text",
-                              event.target
+                              event
+                                .target
                                 .value
                             )
                           }
@@ -1683,7 +2426,8 @@ function InstructorQuizzes() {
                       "Short Answer" ? (
                         <div className="quiz-form-group">
                           <label>
-                            Expected Answer
+                            Expected
+                            Answer
                           </label>
 
                           <input
@@ -1697,7 +2441,8 @@ function InstructorQuizzes() {
                               updateQuestion(
                                 question.id,
                                 "shortAnswer",
-                                event.target
+                                event
+                                  .target
                                   .value
                               )
                             }
@@ -1707,7 +2452,9 @@ function InstructorQuizzes() {
                         <>
                           <div className="quiz-choice-list">
                             {question.choices.map(
-                              (choice) => (
+                              (
+                                choice
+                              ) => (
                                 <div
                                   className="quiz-choice-edit-row"
                                   key={
@@ -1769,7 +2516,9 @@ function InstructorQuizzes() {
                                     }
                                   >
                                     <Trash2
-                                      size={16}
+                                      size={
+                                        16
+                                      }
                                     />
                                   </button>
                                 </div>
@@ -1786,7 +2535,10 @@ function InstructorQuizzes() {
                               )
                             }
                           >
-                            <Plus size={16} />
+                            <Plus
+                              size={16}
+                            />
+
                             Add Choice
                           </button>
                         </>
@@ -1795,6 +2547,26 @@ function InstructorQuizzes() {
                   )
                 )}
               </section>
+
+              <p
+                style={{
+                  margin:
+                    "12px 0",
+                  fontSize:
+                    "12px",
+                  color:
+                    "#64748b",
+                }}
+              >
+                The current
+                quiz-question service
+                stores question text,
+                correct answer and point
+                value. Question type and
+                individual answer-choice
+                records are not separate
+                service parameters.
+              </p>
 
               {formError && (
                 <div className="quiz-form-error">
@@ -1807,7 +2579,10 @@ function InstructorQuizzes() {
                   type="button"
                   className="quiz-cancel-button"
                   onClick={() => {
-                    setShowCreateModal(false);
+                    setShowCreateModal(
+                      false
+                    );
+
                     resetCreateQuiz();
                   }}
                 >
@@ -1817,9 +2592,17 @@ function InstructorQuizzes() {
                 <button
                   type="submit"
                   className="quiz-save-button"
+                  disabled={
+                    isCreating
+                  }
                 >
-                  <Plus size={17} />
-                  Create Quiz
+                  <Plus
+                    size={17}
+                  />
+
+                  {isCreating
+                    ? "Creating..."
+                    : "Create Quiz"}
                 </button>
               </div>
             </form>
@@ -1839,7 +2622,9 @@ function InstructorQuizzes() {
                   </p>
 
                   <h2>
-                    {selectedQuiz.title}
+                    {
+                      selectedQuiz.title
+                    }
                   </h2>
 
                   <p>
@@ -1856,7 +2641,9 @@ function InstructorQuizzes() {
                 <button
                   className="quiz-modal-close"
                   onClick={() =>
-                    setShowManageModal(false)
+                    setShowManageModal(
+                      false
+                    )
                   }
                 >
                   <X size={22} />
@@ -1865,7 +2652,9 @@ function InstructorQuizzes() {
 
               <div className="quiz-manage-layout">
                 <section className="quiz-manage-settings">
-                  <h3>Quiz Details</h3>
+                  <h3>
+                    Quiz Details
+                  </h3>
 
                   <div className="quiz-form-group">
                     <label>
@@ -1890,27 +2679,33 @@ function InstructorQuizzes() {
                       </label>
 
                       <select
-                        name="courseCode"
+                        name="courseId"
                         value={
-                          selectedQuiz.courseCode
+                          selectedQuiz.courseId
                         }
                         onChange={
                           handleManageQuizChange
                         }
                       >
-                        {temporaryCourses.map(
-                          (course) => (
+                        {courses.map(
+                          (
+                            course
+                          ) => (
                             <option
                               key={
-                                course.code
+                                course.id
                               }
                               value={
-                                course.code
+                                course.id
                               }
                             >
-                              {course.code}{" "}
+                              {
+                                course.code
+                              }{" "}
                               -{" "}
-                              {course.name}
+                              {
+                                course.name
+                              }
                             </option>
                           )
                         )}
@@ -1932,7 +2727,9 @@ function InstructorQuizzes() {
                         }
                       >
                         {temporaryCategories.map(
-                          (category) => (
+                          (
+                            category
+                          ) => (
                             <option
                               key={
                                 category
@@ -1941,7 +2738,9 @@ function InstructorQuizzes() {
                                 category
                               }
                             >
-                              {category}
+                              {
+                                category
+                              }
                             </option>
                           )
                         )}
@@ -1952,15 +2751,15 @@ function InstructorQuizzes() {
                   <div className="quiz-form-grid">
                     <div className="quiz-form-group">
                       <label>
-                        Time Limit
+                        Due Date
                       </label>
 
                       <input
-                        name="timeLimit"
-                        type="number"
-                        min="1"
+                        name="dueDate"
+                        type="date"
                         value={
-                          selectedQuiz.timeLimit
+                          selectedQuiz.dueDate ||
+                          ""
                         }
                         onChange={
                           handleManageQuizChange
@@ -1969,7 +2768,9 @@ function InstructorQuizzes() {
                     </div>
 
                     <div className="quiz-form-group">
-                      <label>Status</label>
+                      <label>
+                        Status
+                      </label>
 
                       <select
                         name="status"
@@ -2015,243 +2816,287 @@ function InstructorQuizzes() {
                         handleManageAddQuestion
                       }
                     >
-                      <Plus size={17} />
+                      <Plus
+                        size={17}
+                      />
+
                       Add Question
                     </button>
                   </div>
 
-                  {selectedQuiz.questions.map(
-                    (question, index) => (
-                      <article
-                        className="quiz-question-card"
-                        key={question.id}
-                      >
-                        <div className="quiz-question-card-header">
-                          <h4>
-                            Question{" "}
-                            {index + 1}
-                          </h4>
-
-                          <button
-                            type="button"
-                            className="quiz-remove-question"
-                            disabled={
-                              selectedQuiz
-                                .questions
-                                .length === 1
-                            }
-                            onClick={() =>
-                              handleManageRemoveQuestion(
-                                question.id
-                              )
-                            }
-                          >
-                            <Trash2
-                              size={17}
-                            />
-                          </button>
-                        </div>
-
-                        <div className="quiz-form-grid">
-                          <div className="quiz-form-group">
-                            <label>
-                              Question Type
-                            </label>
-
-                            <select
-                              value={
-                                question.type
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                handleManageQuestionTypeChange(
-                                  question.id,
-                                  event.target
-                                    .value
-                                )
-                              }
-                            >
-                              <option value="Multiple Choice">
-                                Multiple
-                                Choice
-                              </option>
-
-                              <option value="Multiple Answers">
-                                Multiple
-                                Answers
-                              </option>
-
-                              <option value="Short Answer">
-                                Short Answer
-                              </option>
-                            </select>
-                          </div>
-
-                          <div className="quiz-form-group">
-                            <label>
-                              Points
-                            </label>
-
-                            <input
-                              type="number"
-                              min="1"
-                              value={
-                                question.points
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                handleManageQuestionChange(
-                                  question.id,
-                                  "points",
-                                  event.target
-                                    .value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        <div className="quiz-form-group">
-                          <label>
-                            Question Text
-                          </label>
-
-                          <input
-                            value={
-                              question.text
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              handleManageQuestionChange(
-                                question.id,
-                                "text",
-                                event.target
-                                  .value
-                              )
-                            }
-                          />
-                        </div>
-
-                        {question.type ===
-                        "Short Answer" ? (
-                          <div className="quiz-form-group">
-                            <label>
-                              Expected Answer
-                            </label>
-
-                            <input
-                              value={
-                                question.shortAnswer
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                handleManageQuestionChange(
-                                  question.id,
-                                  "shortAnswer",
-                                  event.target
-                                    .value
-                                )
-                              }
-                            />
-                          </div>
-                        ) : (
-                          <>
-                            <div className="quiz-choice-list">
-                              {question.choices.map(
-                                (choice) => (
-                                  <div
-                                    className="quiz-choice-edit-row"
-                                    key={
-                                      choice.id
-                                    }
-                                  >
-                                    <input
-                                      type={
-                                        question.type ===
-                                        "Multiple Choice"
-                                          ? "radio"
-                                          : "checkbox"
-                                      }
-                                      name={`manage-correct-${question.id}`}
-                                      checked={
-                                        choice.correct
-                                      }
-                                      onChange={() =>
-                                        handleManageCorrectChoice(
-                                          question.id,
-                                          choice.id
-                                        )
-                                      }
-                                    />
-
-                                    <input
-                                      type="text"
-                                      value={
-                                        choice.text
-                                      }
-                                      placeholder="Answer choice"
-                                      onChange={(
-                                        event
-                                      ) =>
-                                        handleManageChoiceText(
-                                          question.id,
-                                          choice.id,
-                                          event
-                                            .target
-                                            .value
-                                        )
-                                      }
-                                    />
-
-                                    <button
-                                      type="button"
-                                      className="quiz-remove-choice"
-                                      disabled={
-                                        question
-                                          .choices
-                                          .length <=
-                                        2
-                                      }
-                                      onClick={() =>
-                                        handleManageRemoveChoice(
-                                          question.id,
-                                          choice.id
-                                        )
-                                      }
-                                    >
-                                      <Trash2
-                                        size={
-                                          16
-                                        }
-                                      />
-                                    </button>
-                                  </div>
-                                )
-                              )}
-                            </div>
+                  {selectedQuiz.questions
+                    .length > 0 ? (
+                    selectedQuiz.questions.map(
+                      (
+                        question,
+                        index
+                      ) => (
+                        <article
+                          className="quiz-question-card"
+                          key={
+                            question.id
+                          }
+                        >
+                          <div className="quiz-question-card-header">
+                            <h4>
+                              Question{" "}
+                              {index +
+                                1}
+                            </h4>
 
                             <button
                               type="button"
-                              className="quiz-add-choice-button"
+                              className="quiz-remove-question"
+                              disabled={
+                                selectedQuiz
+                                  .questions
+                                  .length ===
+                                1
+                              }
                               onClick={() =>
-                                handleManageAddChoice(
+                                handleManageRemoveQuestion(
                                   question.id
                                 )
                               }
                             >
-                              <Plus
-                                size={16}
+                              <Trash2
+                                size={
+                                  17
+                                }
                               />
-                              Add Choice
                             </button>
-                          </>
-                        )}
-                      </article>
+                          </div>
+
+                          <div className="quiz-form-grid">
+                            <div className="quiz-form-group">
+                              <label>
+                                Question
+                                Type
+                              </label>
+
+                              <select
+                                value={
+                                  question.type
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  handleManageQuestionTypeChange(
+                                    question.id,
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                              >
+                                <option value="Multiple Choice">
+                                  Multiple
+                                  Choice
+                                </option>
+
+                                <option value="Multiple Answers">
+                                  Multiple
+                                  Answers
+                                </option>
+
+                                <option value="Short Answer">
+                                  Short
+                                  Answer
+                                </option>
+                              </select>
+                            </div>
+
+                            <div className="quiz-form-group">
+                              <label>
+                                Points
+                              </label>
+
+                              <input
+                                type="number"
+                                min="1"
+                                value={
+                                  question.points
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  handleManageQuestionChange(
+                                    question.id,
+                                    "points",
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <div className="quiz-form-group">
+                            <label>
+                              Question
+                              Text
+                            </label>
+
+                            <input
+                              value={
+                                question.text
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                handleManageQuestionChange(
+                                  question.id,
+                                  "text",
+                                  event
+                                    .target
+                                    .value
+                                )
+                              }
+                            />
+                          </div>
+
+                          {question.type ===
+                          "Short Answer" ? (
+                            <div className="quiz-form-group">
+                              <label>
+                                Expected
+                                Answer
+                              </label>
+
+                              <input
+                                value={
+                                  question.shortAnswer
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  handleManageQuestionChange(
+                                    question.id,
+                                    "shortAnswer",
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="quiz-choice-list">
+                                {question.choices.map(
+                                  (
+                                    choice
+                                  ) => (
+                                    <div
+                                      className="quiz-choice-edit-row"
+                                      key={
+                                        choice.id
+                                      }
+                                    >
+                                      <input
+                                        type={
+                                          question.type ===
+                                          "Multiple Choice"
+                                            ? "radio"
+                                            : "checkbox"
+                                        }
+                                        name={`manage-correct-${question.id}`}
+                                        checked={
+                                          choice.correct
+                                        }
+                                        onChange={() =>
+                                          handleManageCorrectChoice(
+                                            question.id,
+                                            choice.id
+                                          )
+                                        }
+                                      />
+
+                                      <input
+                                        type="text"
+                                        value={
+                                          choice.text
+                                        }
+                                        placeholder="Answer choice"
+                                        onChange={(
+                                          event
+                                        ) =>
+                                          handleManageChoiceText(
+                                            question.id,
+                                            choice.id,
+                                            event
+                                              .target
+                                              .value
+                                          )
+                                        }
+                                      />
+
+                                      <button
+                                        type="button"
+                                        className="quiz-remove-choice"
+                                        disabled={
+                                          question
+                                            .choices
+                                            .length <=
+                                          2
+                                        }
+                                        onClick={() =>
+                                          handleManageRemoveChoice(
+                                            question.id,
+                                            choice.id
+                                          )
+                                        }
+                                      >
+                                        <Trash2
+                                          size={
+                                            16
+                                          }
+                                        />
+                                      </button>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                className="quiz-add-choice-button"
+                                onClick={() =>
+                                  handleManageAddChoice(
+                                    question.id
+                                  )
+                                }
+                              >
+                                <Plus
+                                  size={
+                                    16
+                                  }
+                                />
+
+                                Add
+                                Choice
+                              </button>
+                            </>
+                          )}
+                        </article>
+                      )
                     )
+                  ) : (
+                    <div className="quiz-select-attempt">
+                      <CircleHelp
+                        size={30}
+                      />
+
+                      <p>
+                        Question details
+                        were not included
+                        in the quiz response.
+                        You can still add
+                        questions locally
+                        here.
+                      </p>
+                    </div>
                   )}
 
                   {manageError && (
@@ -2272,11 +3117,32 @@ function InstructorQuizzes() {
                       handleSaveQuiz
                     }
                   >
-                    <Save size={17} />
+                    <Save
+                      size={17}
+                    />
+
                     Save Quiz Changes
                   </button>
+
+                  <p
+                    style={{
+                      margin:
+                        "10px 0 0",
+                      fontSize:
+                        "12px",
+                      color:
+                        "#64748b",
+                    }}
+                  >
+                    Editing an existing
+                    quiz is currently
+                    frontend-only because
+                    no update-quiz service
+                    is connected.
+                  </p>
                 </section>
 
+                {/* Attempts remain temporary */}
                 <section className="quiz-attempt-panel">
                   <div className="quiz-attempt-panel-header">
                     <div>
@@ -2285,19 +3151,25 @@ function InstructorQuizzes() {
                       </h3>
 
                       <p>
-                        Review completed quiz
-                        attempts.
+                        Review completed
+                        quiz attempts.
                       </p>
                     </div>
 
-                    <Users size={21} />
+                    <Users
+                      size={21}
+                    />
                   </div>
 
                   <div className="quiz-attempt-list">
                     {temporaryAttempts.map(
-                      (attempt) => (
+                      (
+                        attempt
+                      ) => (
                         <button
-                          key={attempt.id}
+                          key={
+                            attempt.id
+                          }
                           className={
                             selectedAttempt?.id ===
                             attempt.id
@@ -2325,7 +3197,10 @@ function InstructorQuizzes() {
                           </div>
 
                           <strong>
-                            {attempt.score}%
+                            {
+                              attempt.score
+                            }
+                            %
                           </strong>
                         </button>
                       )
@@ -2354,7 +3229,12 @@ function InstructorQuizzes() {
                           type="button"
                           className="quiz-view-attempt-button"
                         >
-                          <Eye size={16} />
+                          <Eye
+                            size={
+                              16
+                            }
+                          />
+
                           View Attempt
                         </button>
                       </div>
@@ -2386,15 +3266,35 @@ function InstructorQuizzes() {
                     </div>
                   ) : (
                     <div className="quiz-select-attempt">
-                      <Users size={30} />
+                      <Users
+                        size={30}
+                      />
 
                       <p>
                         Select a student
-                        attempt to view the
-                        result.
+                        attempt to view
+                        the result.
                       </p>
                     </div>
                   )}
+
+                  <p
+                    style={{
+                      margin:
+                        "12px 0 0",
+                      fontSize:
+                        "12px",
+                      color:
+                        "#64748b",
+                    }}
+                  >
+                    Attempts are still
+                    temporary because the
+                    current service only
+                    retrieves quiz attempts
+                    by student, not by
+                    selected quiz.
+                  </p>
                 </section>
               </div>
             </section>
