@@ -917,7 +917,6 @@ app.post('/api/Course_Grades',
             if (letter_grade === 'D') score = 65;
             if (letter_grade === 'F') score = 55;
         }
-            
 
         try {
             const [existingUser] = await connectionPool.query(
@@ -934,7 +933,7 @@ app.post('/api/Course_Grades',
             if (existingCourse.length === 0) 
                 return res.status(404).json({ error: `Course with ID ${courseIDasNum} not found` });
             
-            const [existingEnrollment] = await connection.query(
+            const [existingEnrollment] = await connectionPool.query(
                 `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ? AND isArchived = 0`,
                 [courseIDasNum, studentIDasNum]
             );
@@ -951,8 +950,8 @@ app.post('/api/Course_Grades',
                 return res.status(409).json({ error: `Grade for student ${studentIDasNum} in course ${courseIDasNum} exists` });
 
             const [successfullyInsertedGrade] = await connectionPool.query(
-                `INSERT INTO Course_Grades (student_id, course_id, letter_grade) VALUES (?, ?, ?)`,
-                [studentIDasNum, courseIDasNum, letter_grade]
+                `INSERT INTO Course_Grades (student_id, course_id, letter_grade, score) VALUES (?, ?, ?, ?)`,
+                [studentIDasNum, courseIDasNum, letter_grade, score]
             );
             return res.status(201).json(
                 {
@@ -960,9 +959,10 @@ app.post('/api/Course_Grades',
                     message: `Successfully uploaded Grade for student`,
                     grade: {
                         grade_id: successfullyInsertedGrade.insertId,
-                        student_id: successfullyInsertedGrade.student_id,
-                        course_id: successfullyInsertedGrade.course_id,
-                        letter_grade: successfullyInsertedGrade.letter_grade
+                        student_id: studentIDasNum,
+                        course_id: courseIDasNum,
+                        letter_grade: letter_grade,
+                        score: score
                     }
                 }
             );
@@ -972,7 +972,7 @@ app.post('/api/Course_Grades',
             res.status(500).json({ error: 'Internal server error' });
         }
     }
-)
+);
 
 /////////////////// GET REQUESTS ////////////////////////////
 
@@ -1707,6 +1707,92 @@ app.get('/api/courses/students/:courseID',
     }
 );
 
+// get grade by student and course
+app.get('/api/Course_Grades/:studentId/:courseId',
+    authenticateToken,
+    async (req, res) => {
+        const studentId = Number(req.params.studentId);
+        const courseId = Number(req.params.courseId);
+        const currentUserId = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (!studentId || studentId < 0 || !Number.isInteger(studentId))
+            return res.status(400).json({ error: 'Invalid student ID' });
+        if (!courseId || courseId < 0 || !Number.isInteger(courseId))
+            return res.status(400).json({ error: 'Invalid course ID' });
+
+        try {
+            const [course] = await connectionPool.query(
+                `SELECT instructor_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseId]
+            );
+            if (course.length === 0)
+                return res.status(404).json({ error: 'Course not found' });
+
+            if (currentUserRole === 'student') {
+                if (currentUserId !== studentId)
+                    return res.status(403).json({ error: 'You can only view your own grades' });
+            } else if (currentUserRole === 'instructor') {
+                if (course[0].instructor_id !== currentUserId)
+                    return res.status(403).json({ error: 'You are not the instructor for this course' });
+            }
+
+            const [grade] = await connectionPool.query(
+                `SELECT grade_id, student_id, course_id, letter_grade, score, isArchived
+                 FROM Course_Grades
+                 WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                [studentId, courseId]
+            );
+
+            if (grade.length === 0)
+                return res.status(404).json({ error: 'Grade not found for this student/course' });
+
+            return res.status(200).json({ success: true, grade: grade[0] });
+        } catch (error) {
+            console.error('Error fetching grade:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
+// get all grades for instructor
+app.get('/api/Courses/:courseId/grades',
+    authenticateToken,
+    async (req, res) => {
+        const courseId = Number(req.params.courseId);
+        const currentUserId = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (!courseId || courseId < 0 || !Number.isInteger(courseId))
+            return res.status(400).json({ error: 'Invalid course ID' });
+
+        try {
+            const [course] = await connectionPool.query(
+                `SELECT instructor_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseId]
+            );
+            if (course.length === 0)
+                return res.status(404).json({ error: 'Course not found' });
+
+            if (currentUserRole !== 'admin' && course[0].instructor_id !== currentUserId) {
+                return res.status(403).json({ error: 'Unauthorized to view grades for this course' });
+            }
+
+            const [grades] = await connectionPool.query(
+                `SELECT g.grade_id, g.student_id, g.letter_grade, g.score, u.name
+                 FROM Course_Grades g
+                 JOIN Users u ON g.student_id = u.user_id
+                 WHERE g.course_id = ? AND g.isArchived = 0 AND u.isArchived = 0`,
+                [courseId]
+            );
+
+            return res.status(200).json({ success: true, grades });
+        } catch (error) {
+            console.error('Error fetching course grades:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
 
 
 /////////////////// PATCH REQUESTS ////////////////////////////
@@ -1972,6 +2058,7 @@ app.put('/api/Quiz_Questions/:questionID',
         }
     }
 );
+
 
 ////////////// DELETE REQUESTS ////////////////
 app.delete('/api/Quiz_Questions/:questionID',

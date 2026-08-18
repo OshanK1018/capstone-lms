@@ -22,3 +22,11 @@ export async function updateCourseGrade(studentId, courseId, letterGrade, score 
     body,
   });
 }
+
+export async function getCourseGrade(studentId, courseId) {
+  return apiRequest(`/Course_Grades/${studentId}/${courseId}`, { method: 'GET' });
+}
+
+export async function getGradesForCourse(courseId) {
+  return apiRequest(`/Courses/${courseId}/grades`, { method: 'GET' });
+}
