@@ -1,4 +1,4 @@
-import "./CourseDetail.css";
+import "./CourseHome.css";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 // Temporary frontend data until backend API integration is connected
@@ -35,7 +35,7 @@ function sortByNewestDate(items) {
     });
 }
 
-function CourseDetail() {
+function CourseHome() {
     const { courseId } = useParams();
     const navigate = useNavigate();
 
@@ -171,7 +171,7 @@ function CourseDetail() {
                     {courseAnnouncements.length > 0 ? (
                         courseAnnouncements.map((announcement) => (
                             <div
-                                className="course-detail-item"
+                                className="course-home-item"
                                 key={announcement.id}
                             >
                                 <span>
@@ -269,4 +269,4 @@ function CourseDetail() {
     );
 }
 
-export default CourseDetail;
+export default CourseHome;

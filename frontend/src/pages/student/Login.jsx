@@ -3,7 +3,7 @@ import "./Login.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { loginUser } from "../../../../backend/userServices.js";
+import { loginUser } from "../../../../backend/authServices.js";
 
 function Login() {
   const navigate = useNavigate();

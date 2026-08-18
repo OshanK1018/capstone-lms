@@ -1,12 +1,14 @@
 import "./CoursePages.css";
 import "./StudentAssignments.css";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
 
 // Temporary frontend data until backend API integration is connected
-import {
-    enrolledCourses,
-    upcomingAssignments,
-} from "../../data/studentData";
+// import {
+//     enrolledCourses,
+//     upcomingAssignments,
+// } from "../../data/studentData";
 
 const assignmentSubmissionsKey = "assignmentSubmissions";
 
@@ -30,7 +32,10 @@ function isAssignmentOverdue(dueDate) {
 
 function sortByDueDate(items) {
     return [...items].sort((firstItem, secondItem) => {
-        return getDate(firstItem.dueDate) - getDate(secondItem.dueDate);
+        return (
+            getDate(firstItem.dueDate) -
+            getDate(secondItem.dueDate)
+        );
     });
 }
 
@@ -38,40 +43,107 @@ function StudentAssignments() {
     const { courseId } = useParams();
     const navigate = useNavigate();
 
+    // Loads assignments posted for this course from the backend
+    const [assignments, setAssignments] = useState([]);
+    const [assignmentError, setAssignmentError] =
+        useState("");
+    const [assignmentsLoading, setAssignmentsLoading] =
+        useState(true);
+
+    useEffect(() => {
+        async function loadAssignments() {
+            setAssignmentsLoading(true);
+            setAssignmentError("");
+
+            const result =
+                await getAssignmentsForCourse(courseId);
+
+            if (!result.success) {
+                setAssignmentError(
+                    result.error ||
+                    "Unable to load assignments."
+                );
+                setAssignmentsLoading(false);
+                return;
+            }
+
+            const normalizedAssignments = (
+                result.data?.assignments || []
+            ).map((assignment) => ({
+                id:
+                    assignment.assignment_id ??
+                    assignment.id,
+                courseId:
+                    assignment.course_id ??
+                    Number(courseId),
+                title: assignment.title,
+                dueDate:
+                    assignment.due_date?.slice(0, 10),
+                pointsPossible:
+                    assignment.max_points,
+                assignmentLink:
+                    assignment.assignment_link,
+                allowResubmission:
+                    Boolean(
+                        assignment.allow_resubmission
+                    ),
+            }));
+
+            setAssignments(
+                sortByDueDate(normalizedAssignments)
+            );
+
+            setAssignmentsLoading(false);
+        }
+
+        loadAssignments();
+    }, [courseId]);
+
     // Temporary browser storage
     // Replace this with enrolled course data returned by the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
+    // const savedCourses =
+    //     localStorage.getItem("studentCourses");
 
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
+    // const studentCourses = savedCourses
+    //     ? JSON.parse(savedCourses)
+    //     : enrolledCourses;
 
     // Temporary mock lookup
     // Later the backend will verify that the student has access to this course
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
-    );
+    // const selectedCourse = studentCourses.find(
+    //     (course) => String(course.id) === courseId
+    // );
 
     // Temporary mock assignment data
     // Later request assignments for this course from the backend API
-    const assignments = sortByDueDate(
-        upcomingAssignments.filter(
-            (assignment) => assignment.courseCode === selectedCourse?.code
-        )
-    );
+    // const temporaryAssignments = sortByDueDate(
+    //     upcomingAssignments.filter(
+    //         (assignment) =>
+    //             assignment.courseCode ===
+    //             selectedCourse?.code
+    //     )
+    // );
+
+    // Uses temporary assignments until the backend request succeeds
+    // const assignments =
+    //     backendAssignments ?? temporaryAssignments;
 
     // Temporary browser storage
     // Replace this with assignment submission data from the backend API
     const savedSubmissions = JSON.parse(
-        localStorage.getItem(assignmentSubmissionsKey) || "[]"
+        localStorage.getItem(
+            assignmentSubmissionsKey
+        ) || "[]"
     );
 
     function getAssignmentStatus(assignment) {
         const submission = savedSubmissions.find(
             (savedSubmission) =>
-                String(savedSubmission.assignmentId) ===
-                    String(assignment.id) &&
-                String(savedSubmission.courseId) === courseId
+                String(
+                    savedSubmission.assignmentId
+                ) === String(assignment.id) &&
+                String(savedSubmission.courseId) ===
+                    courseId
         );
 
         if (submission) {
@@ -86,7 +158,9 @@ function StudentAssignments() {
     }
 
     function handleOpenAssignment(assignmentId) {
-        navigate(`/student/course/${courseId}/assignments/${assignmentId}`);
+        navigate(
+            `/student/course/${courseId}/assignments/${assignmentId}`
+        );
     }
 
     return (
@@ -94,19 +168,33 @@ function StudentAssignments() {
             <section className="course-page__card">
                 <h1>Assignments</h1>
 
-                {assignments.length > 0 ? (
+                {assignmentsLoading ? (
+                    <p className="course-page__empty">
+                        Loading assignments...
+                    </p>
+                ) : assignmentError ? (
+                    <p className="course-page__empty">
+                        {assignmentError}
+                    </p>
+                ) : assignments.length > 0 ? (
                     assignments.map((assignment) => (
                         <div
                             className="assignment-row"
-                            key={assignment.id}
+                            key={
+                                assignment.id ??
+                                `${assignment.title}-${assignment.dueDate}`
+                            }
                         >
                             <div className="assignment-row__info">
-                                <h2>{assignment.title}</h2>
+                                <h2>
+                                    {assignment.title}
+                                </h2>
                             </div>
 
                             <div className="assignment-row__details">
                                 <div>
                                     <span>Due Date</span>
+
                                     <strong>
                                         {formatDisplayDate(
                                             assignment.dueDate
@@ -116,6 +204,7 @@ function StudentAssignments() {
 
                                 <div>
                                     <span>Status</span>
+
                                     <strong>
                                         {getAssignmentStatus(
                                             assignment
@@ -127,6 +216,7 @@ function StudentAssignments() {
                             <button
                                 type="button"
                                 className="assignment-row__button"
+                                disabled={!assignment.id}
                                 onClick={() =>
                                     handleOpenAssignment(
                                         assignment.id
@@ -139,7 +229,8 @@ function StudentAssignments() {
                     ))
                 ) : (
                     <p className="course-page__empty">
-                        No assignments posted for this course.
+                        No assignments posted for this
+                        course.
                     </p>
                 )}
             </section>

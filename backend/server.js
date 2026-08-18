@@ -1139,6 +1139,26 @@ app.get('/api/courses/student/:studentID',
     }
 );
 
+// Get all active courses for student enrollment
+app.get('/api/courses/all', authenticateToken, async (req, res) => {
+    try {
+        const [courses] = await connectionPool.query(`
+            SELECT Courses.course_id, Courses.title,
+            Users.name AS instructor_name, Courses.instructor_id,
+            Courses.credits, Courses.start_date, Courses.end_date,
+            Courses.max_seats, Courses.seats_open, Courses.materials_url
+            FROM Courses
+            LEFT JOIN Users ON Courses.instructor_id = Users.user_id
+            WHERE Courses.isArchived = 0
+        `);
+
+        res.json({ success: true, courses });
+    } catch (error) {
+        console.error("Could not fetch courses", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 // get course information based off ID
 app.get('/api/courses/:courseID',
     authenticateToken,
