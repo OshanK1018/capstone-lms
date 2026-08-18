@@ -1,12 +1,15 @@
 import { apiRequest } from './apiHelper.js';
 
-export async function assignCourseGrade(student_id, course_id, letter_grade) {
+export async function assignCourseGrade(studentId, courseId, letterGrade, score = null) {
+  const body = { student_id: studentId, course_id: courseId, letter_grade: letterGrade };
+  if (score !== null && score !== undefined) {
+    body.score = score;
+  }
   return apiRequest('/Course_Grades', {
     method: 'POST',
-    body: { student_id, course_id, letter_grade },
+    body,
   });
 }
-
 export async function updateCourseGrade(studentId, courseId, letterGrade, score = null) {
   const body = { letter_grade: letterGrade };
   if (score !== null && score !== undefined) {
