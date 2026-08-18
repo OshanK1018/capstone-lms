@@ -1591,8 +1591,8 @@ app.get('/api/courses/announcements/:courseID',
 app.get('/api/students/quiz_attempts/:studentID',
     authenticateToken,
     async (req, res) => {
-        const courseID = req.params.courseID;
-        const courseIDasNum = Number(courseID);
+        const studentID = req.params.studentID;
+        const studentIDasNum = Number(studentID);
         const currentUserRole = req.user.role;
         const currentUserID = req.user.user_id;
 

@@ -186,6 +186,7 @@ INSERT INTO Users (name, email, password, role) VALUES
 ('Olivia Ko', 'oko@hunter.cuny.edu', 'pass444', 'student'),
 ('Tori Khandaker', 'tkhandaker@hunter.cuny.edu', 'passadmin', 'admin');
 
+
 -- Insert data into Courses
 INSERT INTO Courses (title, start_date, end_date, instructor_id, credits, max_seats, seats_open, materials_url) VALUES 
 ('MATH101 - Algebra I', '2026-05-28', '2026-08-25', 2, 3, 30, 30, NULL),
