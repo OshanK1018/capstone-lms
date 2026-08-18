@@ -46,19 +46,19 @@
     font-weight: 800;
 }
 
-.course-detail-item,
+.course-home-item,
 .course-work-item {
     margin: 0 28px;
     padding: 18px 0;
     border-top: 1px solid #edf2f7;
 }
 
-.course-detail-item:first-of-type,
+.course-home-item:first-of-type,
 .course-work-item:first-of-type {
     border-top: 0;
 }
 
-.course-detail-item span {
+.course-home-item span {
     display: block;
     margin-bottom: 4px;
     color: #3b82f6;
@@ -66,14 +66,14 @@
     font-weight: 800;
 }
 
-.course-detail-item h3 {
+.course-home-item h3 {
     margin: 0 0 4px;
     color: #1e293b;
     font-size: 0.84rem;
     font-weight: 800;
 }
 
-.course-detail-item p {
+.course-home-item p {
     margin: 0;
     color: #64748b;
     font-size: 0.8rem;
@@ -153,7 +153,7 @@
         gap: 10px;
     }
 
-    .course-detail-item,
+    .course-home-item,
     .course-work-item {
         margin: 0 20px;
     }

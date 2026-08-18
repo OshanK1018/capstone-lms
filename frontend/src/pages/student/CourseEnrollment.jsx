@@ -1,12 +1,15 @@
 import "./CourseEnrollment.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { getCurrentUser } from "../../../../backend/authServices.js";
+import { getAllCourses, getCoursesForStudent, } from "../../../../backend/courseServices.js";
+import { enrollStudent } from "../../../../backend/enrollmentServices.js";
 
 // Temporary frontend data until backend API integration is connected
-import {
-    courseCatalog,
-    enrolledCourses,
-} from "../../data/studentData";
+// import {
+//     courseCatalog,
+//     enrolledCourses,
+// } from "../../data/studentData";
 
 const studentCoursesKey = "studentCourses";
 const catalogCoursesKey = "catalogCourses";
@@ -38,32 +41,122 @@ function saveData(key, data) {
 
 // Temporary initialization using mock enrollment data
 // Fetch the student's enrolled courses from the backend API
-function getInitialStudentCourses() {
-    return courseCatalog.filter((catalogCourse) => {
-        return enrolledCourses.some(
-            (course) => course.id === catalogCourse.id
-        );
-    });
+// function getInitialStudentCourses() {
+//     return courseCatalog.filter((catalogCourse) => {
+//         return enrolledCourses.some(
+//             (course) => course.id === catalogCourse.id
+//         );
+//     });
+// }
+
+function getSemester(startDate) {
+    const date = new Date(startDate);
+    const month = date.getUTCMonth();
+
+    const term =
+        month >= 8 ? "Fall" :
+        month === 0 ? "Winter" :
+        month <= 4 ? "Spring" :
+        "Summer";
+
+    return `${term} ${date.getUTCFullYear()}`;
+}
+
+function normalizeCourse(course) {
+    const id = course.course_id ?? course.id;
+    const seatsOpen = Number(course.seats_open ?? 0);
+
+    return {
+        id,
+        code: course.code ?? `COURSE ${id}`,
+        title: course.title,
+        instructor: course.instructor_name ?? "Instructor",
+        credits: Number(course.credits ?? 0),
+        semester: getSemester(course.start_date),
+        seatsOpen,
+        availability: seatsOpen > 0 ? "Open" : "Closed",
+        startDate: course.start_date,
+        endDate: course.end_date,
+    };
 }
 
 function CourseEnrollment() {
+    // Loads the logged in student so enrollment requests can use the real student ID
+    const [currentStudent, setCurrentStudent] = useState(null);
+    const [backendError, setBackendError] = useState("");
+
+    useEffect(() => {
+        async function loadCurrentStudent() {
+            const result = await getCurrentUser();
+
+            if (!result.success) {
+                setBackendError(
+                    result.error || "Unable to load student information"
+                );
+                return;
+            }
+
+            const user = result.data?.user ?? result.user;
+
+            if (user?.role?.toLowerCase() !== "student") {
+                setBackendError("The logged-in account is not a student");
+                return;
+            }
+
+            setCurrentStudent(user);
+            const studentId = user.user_id ?? user.id;
+
+            const catalogResult = await getAllCourses();
+            const coursesResult =
+                await getCoursesForStudent(studentId);
+
+            if (!catalogResult.success || !coursesResult.success) {
+                setBackendError(
+                    catalogResult.error ||
+                    coursesResult.error ||
+                    "Unable to load courses"
+                );
+                return;
+            }
+
+            const catalog = (
+                catalogResult.data?.courses || []
+            ).map(normalizeCourse);
+
+            const enrolled = (
+                coursesResult.data?.courses || []
+            ).map(normalizeCourse);
+
+            setCatalogCourses(catalog);
+            setStudentCourses(enrolled);
+
+            saveData(catalogCoursesKey, catalog);
+            saveData(studentCoursesKey, enrolled);
+        }
+
+        loadCurrentStudent();
+    }, []);
+
+
     const [searchTerm, setSearchTerm] = useState("");
     const [semesterFilter, setSemesterFilter] =
         useState("All Semesters");
 
-    const [studentCourses, setStudentCourses] = useState(() =>
-        getSavedData(
-            studentCoursesKey,
-            getInitialStudentCourses()
-        )
-    );
+    // const [studentCourses, setStudentCourses] = useState(() =>
+    //     getSavedData(
+    //         studentCoursesKey,
+    //         getInitialStudentCourses()
+    //     )
+    // );
 
-    const [catalogCourses, setCatalogCourses] = useState(() =>
-        getSavedData(
-            catalogCoursesKey,
-            courseCatalog
-        )
-    );
+    // const [catalogCourses, setCatalogCourses] = useState(() =>
+    //     getSavedData(
+    //         catalogCoursesKey,
+    //         courseCatalog
+    //     )
+    // );
+    const [studentCourses, setStudentCourses] = useState([]);
+    const [catalogCourses, setCatalogCourses] = useState([]);
 
     const [selectedAction, setSelectedAction] = useState(null);
 
@@ -150,10 +243,26 @@ function CourseEnrollment() {
     }
 
     // Main backend integration point: call the appropriate enroll or drop API endpoint here
-    function confirmAction() {
+    async function confirmAction() {
         const course = selectedAction.course;
 
         if (selectedAction.type === "enroll") {
+
+            const studentId =
+                currentStudent?.user_id ?? currentStudent?.id;
+
+            const result = await enrollStudent(
+                studentId,
+                course.id
+            );
+
+            if (!result.success) {
+                setBackendError(
+                    result.error || "Unable to enroll in course"
+                );
+                closeActionModal();
+                return;
+            }
             // Temporary frontend enrollment simulation
             // The backend should validate and create the enrollment
             const updatedStudentCourses = [
@@ -189,12 +298,19 @@ function CourseEnrollment() {
         }
 
         if (selectedAction.type === "drop") {
-            // Temporary frontend drop simulation
-            // The backend should remove the enrollment
-            const updatedStudentCourses =
-                studentCourses.filter((studentCourse) => {
-                    return studentCourse.id !== course.id;
-                });
+            if (selectedAction.type === "drop") {
+                setBackendError(
+                    "Dropping a course is not connected yet."
+                );
+                closeActionModal();
+                return;
+            }
+            // // Temporary frontend drop simulation
+            // // The backend should remove the enrollment
+            // const updatedStudentCourses =
+            //     studentCourses.filter((studentCourse) => {
+            //         return studentCourse.id !== course.id;
+            //     });
 
             // Temporary frontend seat count update
             // The backend should update availability as part of the drop transaction
