@@ -20,6 +20,10 @@ CREATE TABLE Courses (
     start_date DATE,
     end_date DATE,
     instructor_id INT,
+    credits INT,
+    max_seats INT,
+    seats_open INT,
+    materials_url TEXT,
     isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (instructor_id) REFERENCES Users(user_id)
 );
@@ -43,6 +47,7 @@ CREATE TABLE Assignments (
     due_date DATETIME, 
     max_points INT,
     assignment_link TEXT,
+    allow_resubmission BOOLEAN NOT NULL DEFAULT 0 CHECK (allow_resubmission IN (0, 1)),
     isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
@@ -94,15 +99,26 @@ CREATE TABLE Quiz_Attempts (
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
 
--- 9. Grades Table
-CREATE TABLE Grades (
+-- 9. Course_Grades Table
+CREATE TABLE Course_Grades (
     grade_id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT,
     course_id INT,
     letter_grade VARCHAR(10),
+    SCORE INT,
     isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0,1)),
     FOREIGN KEY (student_id) REFERENCES Users(user_id),
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
+);
+
+CREATE TABLE Assignment_Grades (
+    grade_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT,
+    assignment_id INT,
+    score INT,
+    isArchived BOOLEAN NOT NULL DEFAULT 0 CHECK (isArchived IN (0, 1)),
+    FOREIGN KEY (student_id) REFERENCES Users(user_id),
+    FOREIGN KEY (assignment_id) REFERENCES Assignments(assignment_id)
 );
 
 -- 10. Announcements Table
@@ -138,7 +154,7 @@ SELECT
     c.title AS course_title,
     g.letter_grade,
     c.instructor_id
-FROM Grades g
+FROM Course_Grades g
 JOIN Users u ON g.student_id = u.user_id
 JOIN Courses c ON g.course_id = c.course_id;
 
@@ -159,7 +175,6 @@ LEFT JOIN Quiz_Attempts qa ON e.student_id = qa.student_id
     AND e.course_id = (SELECT course_id FROM Quizzes WHERE quiz_id = qa.quiz_id)
 GROUP BY e.student_id, e.course_id;
 
-
 -- Insert data into Users
 INSERT INTO Users (name, email, password, role) VALUES 
 ('Jennifer Adams', 'jadams@hunter.cuny.edu', 'pass123', 'instructor'),
@@ -172,12 +187,12 @@ INSERT INTO Users (name, email, password, role) VALUES
 ('Tori Khandaker', 'tkhandaker@hunter.cuny.edu', 'passadmin', 'admin');
 
 -- Insert data into Courses
-INSERT INTO Courses (title, start_date, end_date, instructor_id) VALUES 
-('MATH101 - Algebra I', '2026-05-28', '2026-08-25', 2),
-('PHYS101 - Physics I', '2026-05-28', '2026-08-25', 2),
-('CSCI49900 - Capstone Project', '2026-05-28', '2026-08-25', 1),
-('STAT31100 - Probability & Statistics', '2026-05-28', '2026-08-25', 3),
-('SPAN101 - Beginner Spanish', '2026-05-28', '2026-08-25', 1);
+INSERT INTO Courses (title, start_date, end_date, instructor_id, credits, max_seats, seats_open, materials_url) VALUES 
+('MATH101 - Algebra I', '2026-05-28', '2026-08-25', 2, 3, 30, 30, NULL),
+('PHYS101 - Physics I', '2026-05-28', '2026-08-25', 2, 4, 25, 25, 'https://example.com/physics'),
+('CSCI49900 - Capstone Project', '2026-05-28', '2026-08-25', 1, 3, 20, 20, NULL),
+('STAT31100 - Probability & Statistics', '2026-05-28', '2026-08-25', 3, 3, 30, 30, NULL),
+('SPAN101 - Beginner Spanish', '2026-05-28', '2026-08-25', 1, 3, 25, 25, NULL);
 
 -- Insert data into Enrollments
 INSERT INTO Enrollments (student_id, course_id, enrolled_at) VALUES 
@@ -192,12 +207,12 @@ INSERT INTO Enrollments (student_id, course_id, enrolled_at) VALUES
 (7, 4, '2026-07-30 00:00:00'); 
 
 -- Insert data into Assignments
-INSERT INTO Assignments (course_id, title, due_date, max_points) VALUES 
-(1, 'HW #2', '2026-07-12 00:00:00', 50),
-(2, 'Lab Report #1', '2026-04-24 00:00:00', 50),
-(3, 'Progress Report 2', '2026-07-15 00:00:00', 100),
-(4, 'Youth Survey Data Eval', '2026-07-15 00:00:00', 100),
-(5, 'Translation Drill', '2026-07-25 00:00:00', 25);
+INSERT INTO Assignments (course_id, title, due_date, max_points, assignment_link, allow_resubmission) VALUES 
+(1, 'HW #2', '2026-07-12 00:00:00', 50, NULL, 0),
+(2, 'Lab Report #1', '2026-04-24 00:00:00', 50, NULL, 1),
+(3, 'Progress Report 2', '2026-07-15 00:00:00', 100, NULL, 0),
+(4, 'Youth Survey Data Eval', '2026-07-15 00:00:00', 100, NULL, 0),
+(5, 'Translation Drill', '2026-07-25 00:00:00', 25, NULL, 0);
 
 -- Insert data into Announcements
 INSERT INTO Announcements (course_id, title, message, date_posted) VALUES 
@@ -211,10 +226,11 @@ INSERT INTO Quizzes (course_id, title, due_date) VALUES
 (4, 'System Elimination Review', '2026-07-15 00:00:00'),
 (5, 'Grammatical Cases Exam', '2026-07-15 00:00:00');
 
-INSERT INTO Grades (student_id, course_id, letter_grade)
-VALUES (3, 2, 'A');
+INSERT INTO Course_Grades (student_id, course_id, letter_grade, score) VALUES 
+(3, 2, 'A', 95);
 
--- Insert Data for submission, quiz_questions, quiz_attempts
+INSERT INTO Assignment_Grades (student_id, assignment_id, score) VALUES 
+(3, 1, 48);
 
 INSERT INTO Submissions (assignment_id, student_id, submission_date, submission_link)
 VALUES (1, 3, '2026-06-11 23:29:00', 'hw1.pdf');
@@ -230,3 +246,31 @@ INSERT INTO Quiz_Attempts (quiz_id, student_id, score, attempt_date) VALUES
 (1, 1, 400, '2026-06-24 00:00:34'),
 (2, 1, 500, '2026-07-14 21:22:02'),
 (2, 6, 85, '2026-08-01 02:22:21');
+
+
+-- Indexes for SQL Queries
+-- Foreign Keys
+CREATE INDEX idx_courses_instructor_id ON Courses(instructor_id);
+CREATE INDEX idx_enrollments_student_id ON Enrollments(student_id);
+CREATE INDEX idx_enrollments_course_id ON Enrollments(course_id);
+CREATE INDEX idx_assignments_course_id ON Assignments(course_id);
+CREATE INDEX idx_submissions_assignment_id ON Submissions(assignment_id);
+CREATE INDEX idx_submissions_student_id ON Submissions(student_id);
+CREATE INDEX idx_quizzes_course_id ON Quizzes(course_id);
+CREATE INDEX idx_quiz_questions_quiz_id ON Quiz_Questions(quiz_id);
+CREATE INDEX idx_quiz_attempts_quiz_id ON Quiz_Attempts(quiz_id);
+CREATE INDEX idx_quiz_attempts_student_id ON Quiz_Attempts(student_id);
+CREATE INDEX idx_grades_student_id ON Course_Grades(student_id);
+CREATE INDEX idx_grades_course_id ON Course_Grades(course_id);
+CREATE INDEX idx_announcements_course_id ON Announcements(course_id);
+
+-- isArchived
+CREATE INDEX idx_courses_isArchived ON Courses(isArchived);
+CREATE INDEX idx_enrollments_isArchived ON Enrollments(isArchived);
+CREATE INDEX idx_quizzes_isArchived ON Quizzes(isArchived);
+CREATE INDEX idx_quiz_questions_isArchived ON Quiz_Questions(isArchived);
+CREATE INDEX idx_quiz_attempts_isArchived ON Quiz_Attempts(isArchived);
+CREATE INDEX idx_submissions_isArchived ON Submissions(isArchived);
+CREATE INDEX idx_assignments_isArchived ON Assignments(isArchived);
+CREATE INDEX idx_announcements_isArchived ON Announcements(isArchived);
+CREATE INDEX idx_grades_isArchived ON Course_Grades(isArchived);
