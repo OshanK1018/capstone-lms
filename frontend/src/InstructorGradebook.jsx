@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   Award,
@@ -14,206 +18,229 @@ import {
 
 import InstructorSidebar from "./components/InstructorSidebar";
 
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesForInstructor,
+  getStudentsInCourse,
+} from "../../backend/courseServices.js";
+
+import {
+  assignCourseGrade,
+} from "../../backend/gradingServices.js";
+
 import "./InstructorGradebook.css";
 
-// Temporary course grading setups.
-// These will eventually come from the backend.
-const courseGradingSetups = {
-  "CSCI 510": {
-    courseName: "Web Application Development",
-    categories: [
-      {
-        name: "Assignments",
-        weight: 10,
-      },
-      {
-        name: "Quizzes",
-        weight: 15,
-      },
-      {
-        name: "Projects",
-        weight: 25,
-      },
-      {
-        name: "Midterm",
-        weight: 20,
-      },
-      {
-        name: "Final Exam",
-        weight: 30,
-      },
-    ],
-  },
-
-  "CSCI 633": {
-    courseName: "Software Engineering",
-    categories: [
-      {
-        name: "Assignments",
-        weight: 20,
-      },
-      {
-        name: "Quizzes",
-        weight: 10,
-      },
-      {
-        name: "Projects",
-        weight: 30,
-      },
-      {
-        name: "Midterm",
-        weight: 15,
-      },
-      {
-        name: "Final Exam",
-        weight: 25,
-      },
-    ],
-  },
-
-  "CSCI 721": {
-    courseName: "Artificial Intelligence",
-    categories: [
-      {
-        name: "Assignments",
-        weight: 20,
-      },
-      {
-        name: "Quizzes",
-        weight: 15,
-      },
-      {
-        name: "Projects",
-        weight: 25,
-      },
-      {
-        name: "Midterm",
-        weight: 15,
-      },
-      {
-        name: "Final Exam",
-        weight: 25,
-      },
-    ],
-  },
-};
-
-// Temporary student grade data.
-const initialGradeData = [
+/*
+ * The current backend does not provide
+ * grading-category/weight services yet.
+ *
+ * These categories are therefore used
+ * locally by the Gradebook UI.
+ */
+const defaultGradeCategories = [
   {
-    id: 1,
-    studentName: "Ava Martinez",
-    studentId: "10024561",
-    courseCode: "CSCI 510",
-    courseName: "Web Application Development",
-    grades: {
-      Assignments: 92,
-      Quizzes: 88,
-      Projects: 95,
-      Midterm: 90,
-      "Final Exam": 94,
-    },
+    name: "Assignments",
+    weight: 20,
   },
   {
-    id: 2,
-    studentName: "Liam Johnson",
-    studentId: "10024562",
-    courseCode: "CSCI 510",
-    courseName: "Web Application Development",
-    grades: {
-      Assignments: 84,
-      Quizzes: 79,
-      Projects: 90,
-      Midterm: 82,
-      "Final Exam": 86,
-    },
+    name: "Quizzes",
+    weight: 20,
   },
   {
-    id: 3,
-    studentName: "Sophia Williams",
-    studentId: "10024563",
-    courseCode: "CSCI 633",
-    courseName: "Software Engineering",
-    grades: {
-      Assignments: 96,
-      Quizzes: 91,
-      Projects: 94,
-      Midterm: 93,
-      "Final Exam": 95,
-    },
+    name: "Projects",
+    weight: 20,
   },
   {
-    id: 4,
-    studentName: "Noah Brown",
-    studentId: "10024564",
-    courseCode: "CSCI 633",
-    courseName: "Software Engineering",
-    grades: {
-      Assignments: 76,
-      Quizzes: 82,
-      Projects: 80,
-      Midterm: 78,
-      "Final Exam": 81,
-    },
+    name: "Midterm",
+    weight: 20,
   },
   {
-    id: 5,
-    studentName: "Emma Davis",
-    studentId: "10024565",
-    courseCode: "CSCI 721",
-    courseName: "Artificial Intelligence",
-    grades: {
-      Assignments: 89,
-      Quizzes: 93,
-      Projects: 91,
-      Midterm: 87,
-      "Final Exam": 92,
-    },
-  },
-  {
-    id: 6,
-    studentName: "Ethan Wilson",
-    studentId: "10024566",
-    courseCode: "CSCI 721",
-    courseName: "Artificial Intelligence",
-    grades: {
-      Assignments: 68,
-      Quizzes: 72,
-      Projects: 74,
-      Midterm: 70,
-      "Final Exam": 73,
-    },
+    name: "Final Exam",
+    weight: 20,
   },
 ];
 
-// Calculates weighted course grade.
-const calculateOverallGrade = (student) => {
-  const gradingSetup =
-    courseGradingSetups[student.courseCode];
+function getResponseData(result) {
+  return result?.data ?? result;
+}
 
-  if (!gradingSetup) {
-    return 0;
+function getCoursesFromResult(result) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
   }
 
-  const total = gradingSetup.categories.reduce(
-    (sum, category) => {
-      const categoryGrade =
-        Number(student.grades[category.name]) || 0;
+  if (
+    Array.isArray(data?.courses)
+  ) {
+    return data.courses;
+  }
 
-      return (
-        sum +
-        categoryGrade *
-          (category.weight / 100)
-      );
+  return [];
+}
+
+function getStudentsFromResult(result) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.student_list)
+  ) {
+    return data.student_list;
+  }
+
+  if (
+    Array.isArray(data?.students)
+  ) {
+    return data.students;
+  }
+
+  return [];
+}
+
+function normalizeCourse(
+  course,
+  index
+) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.course_code ??
+      course.courseCode ??
+      `COURSE ${index + 1}`,
+
+    name:
+      course.name ??
+      course.title ??
+      course.course_name ??
+      course.courseName ??
+      "Untitled Course",
+
+    students:
+      Number(
+        course.students ??
+          course.student_count ??
+          course.total_students ??
+          course.seats_taken ??
+          0
+      ),
+  };
+}
+
+function normalizeStudent(
+  student,
+  course,
+  index
+) {
+  const firstName =
+    student.firstName ??
+    student.first_name ??
+    "";
+
+  const lastName =
+    student.lastName ??
+    student.last_name ??
+    "";
+
+  const combinedName =
+    `${firstName} ${lastName}`.trim();
+
+  const studentID =
+    student.student_id ??
+    student.studentId ??
+    student.user_id ??
+    student.id ??
+    index;
+
+  return {
+    id: `${course.id}-${studentID}`,
+
+    backendStudentId:
+      studentID,
+
+    studentName:
+      student.name ??
+      student.fullName ??
+      student.full_name ??
+      (combinedName || "Student"),
+
+    studentId:
+      String(studentID),
+
+    courseId:
+      course.id,
+
+    courseCode:
+      course.code,
+
+    courseName:
+      course.name,
+
+    grades: {
+      Assignments: 0,
+      Quizzes: 0,
+      Projects: 0,
+      Midterm: 0,
+      "Final Exam": 0,
     },
-    0
-  );
+
+    savedLetterGrade:
+      student.letter_grade ??
+      student.letterGrade ??
+      "",
+  };
+}
+
+/*
+ * Calculates the weighted course grade.
+ */
+const calculateOverallGrade = (
+  student
+) => {
+  const total =
+    defaultGradeCategories.reduce(
+      (sum, category) => {
+        const categoryGrade =
+          Number(
+            student.grades[
+              category.name
+            ]
+          ) || 0;
+
+        return (
+          sum +
+          categoryGrade *
+            (category.weight / 100)
+        );
+      },
+      0
+    );
 
   return Math.round(total);
 };
 
-// Converts numerical grade to letter grade.
-const getLetterGrade = (grade) => {
+/*
+ * Converts numerical grade to letter grade.
+ */
+const getLetterGrade = (
+  grade
+) => {
   if (grade >= 93) return "A";
   if (grade >= 90) return "A-";
   if (grade >= 87) return "B+";
@@ -229,85 +256,268 @@ const getLetterGrade = (grade) => {
   return "F";
 };
 
-// Returns CSS class based on grade.
-const getGradeClass = (grade) => {
-  if (grade >= 90) return "excellent";
-  if (grade >= 80) return "good";
-  if (grade >= 70) return "average";
+/*
+ * Returns CSS class based on grade.
+ */
+const getGradeClass = (
+  grade
+) => {
+  if (grade >= 90) {
+    return "excellent";
+  }
+
+  if (grade >= 80) {
+    return "good";
+  }
+
+  if (grade >= 70) {
+    return "average";
+  }
 
   return "needs-improvement";
 };
 
 function InstructorGradebook() {
+  const [courses, setCourses] =
+    useState([]);
+
   const [gradeData, setGradeData] =
-    useState(initialGradeData);
+    useState([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [pageError, setPageError] =
+    useState("");
 
   const [searchTerm, setSearchTerm] =
     useState("");
 
-  const [selectedCourse, setSelectedCourse] =
-    useState("All Courses");
+  const [
+    selectedCourse,
+    setSelectedCourse,
+  ] = useState("All Courses");
 
-  const [selectedStudent, setSelectedStudent] =
-    useState(null);
+  const [
+    selectedStudent,
+    setSelectedStudent,
+  ] = useState(null);
 
-  const [showEditModal, setShowEditModal] =
-    useState(false);
+  const [
+    showEditModal,
+    setShowEditModal,
+  ] = useState(false);
 
-  const [saveMessage, setSaveMessage] =
-    useState("");
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState("");
 
-  const courseOptions = useMemo(() => {
-    return [
-      "All Courses",
-      ...Object.keys(courseGradingSetups),
-    ];
+  /*
+   * Load the real instructor,
+   * their courses, and students
+   * enrolled in those courses.
+   */
+  useEffect(() => {
+    async function loadGradebook() {
+      setIsLoading(true);
+      setPageError("");
+
+      const userResult =
+        await getCurrentUser();
+
+      if (!userResult.success) {
+        setPageError(
+          userResult.error ||
+            "Unable to load the current instructor."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const user =
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
+
+      const instructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      if (!instructorID) {
+        setPageError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const courseResult =
+        await getCoursesForInstructor(
+          instructorID
+        );
+
+      if (!courseResult.success) {
+        setPageError(
+          courseResult.error ||
+            "Unable to load instructor courses."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        getCoursesFromResult(
+          courseResult
+        );
+
+      const normalizedCourses =
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        );
+
+      setCourses(
+        normalizedCourses
+      );
+
+      const rosterRequests =
+        normalizedCourses.map(
+          async (course) => {
+            if (!course.id) {
+              return [];
+            }
+
+            const rosterResult =
+              await getStudentsInCourse(
+                course.id
+              );
+
+            if (
+              !rosterResult.success
+            ) {
+              return [];
+            }
+
+            const students =
+              getStudentsFromResult(
+                rosterResult
+              );
+
+            return students.map(
+              (student, index) =>
+                normalizeStudent(
+                  student,
+                  course,
+                  index
+                )
+            );
+          }
+        );
+
+      const rosterGroups =
+        await Promise.all(
+          rosterRequests
+        );
+
+      setGradeData(
+        rosterGroups.flat()
+      );
+
+      setIsLoading(false);
+    }
+
+    loadGradebook();
   }, []);
 
-  const studentsWithGrades = useMemo(() => {
-    return gradeData.map((student) => {
-      const overallGrade =
-        calculateOverallGrade(student);
+  const courseOptions =
+    useMemo(() => {
+      return [
+        "All Courses",
 
-      return {
-        ...student,
-        overallGrade,
-        letterGrade:
-          getLetterGrade(overallGrade),
-      };
-    });
-  }, [gradeData]);
+        ...courses.map(
+          (course) =>
+            course.code
+        ),
+      ];
+    }, [courses]);
 
-  const filteredStudents = useMemo(() => {
-    const normalizedSearch =
-      searchTerm.toLowerCase().trim();
+  const studentsWithGrades =
+    useMemo(() => {
+      return gradeData.map(
+        (student) => {
+          const overallGrade =
+            calculateOverallGrade(
+              student
+            );
 
-    return studentsWithGrades.filter(
-      (student) => {
-        const matchesSearch =
-          student.studentName
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          student.studentId
-            .toLowerCase()
-            .includes(normalizedSearch) ||
-          student.courseCode
-            .toLowerCase()
-            .includes(normalizedSearch);
+          return {
+            ...student,
 
-        const matchesCourse =
-          selectedCourse === "All Courses" ||
-          student.courseCode ===
-            selectedCourse;
+            overallGrade,
 
-        return matchesSearch && matchesCourse;
-      }
-    );
-  }, [
-    searchTerm,
-    selectedCourse,
-    studentsWithGrades,
-  ]);
+            letterGrade:
+              getLetterGrade(
+                overallGrade
+              ),
+          };
+        }
+      );
+    }, [gradeData]);
+
+  const filteredStudents =
+    useMemo(() => {
+      const normalizedSearch =
+        searchTerm
+          .toLowerCase()
+          .trim();
+
+      return studentsWithGrades.filter(
+        (student) => {
+          const matchesSearch =
+            student.studentName
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            student.studentId
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            student.courseCode
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              );
+
+          const matchesCourse =
+            selectedCourse ===
+              "All Courses" ||
+            student.courseCode ===
+              selectedCourse;
+
+          return (
+            matchesSearch &&
+            matchesCourse
+          );
+        }
+      );
+    }, [
+      searchTerm,
+      selectedCourse,
+      studentsWithGrades,
+    ]);
 
   const displayedStudents =
     filteredStudents.length > 0
@@ -318,10 +528,15 @@ function InstructorGradebook() {
     displayedStudents.length > 0
       ? Math.round(
           displayedStudents.reduce(
-            (total, student) =>
-              total + student.overallGrade,
+            (
+              total,
+              student
+            ) =>
+              total +
+              student.overallGrade,
             0
-          ) / displayedStudents.length
+          ) /
+            displayedStudents.length
         )
       : 0;
 
@@ -338,7 +553,8 @@ function InstructorGradebook() {
   const passingStudents =
     displayedStudents.filter(
       (student) =>
-        student.overallGrade >= 70
+        student.overallGrade >=
+        70
     ).length;
 
   const passingPercentage =
@@ -350,14 +566,22 @@ function InstructorGradebook() {
         )
       : 0;
 
-  const selectedCourseSetup =
-    selectedCourse !== "All Courses"
-      ? courseGradingSetups[selectedCourse]
+  const selectedCourseInformation =
+    selectedCourse !==
+    "All Courses"
+      ? courses.find(
+          (course) =>
+            course.code ===
+            selectedCourse
+        )
       : null;
 
-  const handleEditGrade = (student) => {
+  const handleEditGrade = (
+    student
+  ) => {
     setSelectedStudent({
       ...student,
+
       grades: {
         ...student.grades,
       },
@@ -375,10 +599,14 @@ function InstructorGradebook() {
     let updatedValue = value;
 
     if (value !== "") {
-      updatedValue = Math.min(
-        100,
-        Math.max(0, Number(value))
-      );
+      updatedValue =
+        Math.min(
+          100,
+          Math.max(
+            0,
+            Number(value)
+          )
+        );
     }
 
     setSelectedStudent(
@@ -397,95 +625,180 @@ function InstructorGradebook() {
     setSaveMessage("");
   };
 
-  const handleSaveGrades = () => {
-    setGradeData((previousData) =>
-      previousData.map((student) =>
-        student.id === selectedStudent.id
-          ? {
-              ...student,
+  /*
+   * Save the local category values
+   * and persist the calculated final
+   * letter grade using gradingServices.
+   */
+  const handleSaveGrades =
+    async () => {
+      if (!selectedStudent) {
+        return;
+      }
 
-              grades: {
-                ...selectedStudent.grades,
-              },
-            }
-          : student
-      )
-    );
+      const overallGrade =
+        calculateOverallGrade(
+          selectedStudent
+        );
 
-    setSaveMessage(
-      "Student grades saved temporarily."
-    );
-  };
+      const letterGrade =
+        getLetterGrade(
+          overallGrade
+        );
 
-  const handleExportGrades = () => {
-    const studentsToExport =
-      selectedCourse === "All Courses"
-        ? studentsWithGrades
-        : studentsWithGrades.filter(
+      setIsSaving(true);
+      setSaveMessage("");
+
+      const result =
+        await assignCourseGrade(
+          Number(
+            selectedStudent.backendStudentId
+          ),
+          Number(
+            selectedStudent.courseId
+          ),
+          letterGrade
+        );
+
+      setIsSaving(false);
+
+      if (!result.success) {
+        setSaveMessage(
+          result.error ||
+            "Unable to save the course grade."
+        );
+
+        return;
+      }
+
+      /*
+       * Keep the category values in
+       * frontend state so the UI updates.
+       *
+       * The backend currently persists
+       * the final letter grade only.
+       */
+      setGradeData(
+        (previousData) =>
+          previousData.map(
             (student) =>
-              student.courseCode ===
-              selectedCourse
-          );
+              student.id ===
+              selectedStudent.id
+                ? {
+                    ...student,
 
-    const csvRows = [];
+                    grades: {
+                      ...selectedStudent.grades,
+                    },
 
-    csvRows.push([
-      "Student Name",
-      "Student ID",
-      "Course",
-      "Overall Grade",
-      "Letter Grade",
-    ]);
+                    savedLetterGrade:
+                      letterGrade,
+                  }
+                : student
+          )
+      );
 
-    studentsToExport.forEach(
-      (student) => {
-        csvRows.push([
-          student.studentName,
-          student.studentId,
-          student.courseCode,
-          `${student.overallGrade}%`,
-          student.letterGrade,
-        ]);
-      }
-    );
+      setSelectedStudent(
+        (previousStudent) => ({
+          ...previousStudent,
 
-    const csvContent = csvRows
-      .map((row) =>
-        row.map((value) => `"${value}"`).join(",")
-      )
-      .join("\n");
+          savedLetterGrade:
+            letterGrade,
+        })
+      );
 
-    const blob = new Blob(
-      [csvContent],
-      {
-        type: "text/csv",
-      }
-    );
+      setSaveMessage(
+        `Course grade saved as ${letterGrade}.`
+      );
+    };
 
-    const url =
-      URL.createObjectURL(blob);
+  const handleExportGrades =
+    () => {
+      const studentsToExport =
+        selectedCourse ===
+        "All Courses"
+          ? studentsWithGrades
+          : studentsWithGrades.filter(
+              (student) =>
+                student.courseCode ===
+                selectedCourse
+            );
 
-    const link =
-      document.createElement("a");
+      const csvRows = [];
 
-    link.href = url;
+      csvRows.push([
+        "Student Name",
+        "Student ID",
+        "Course",
+        "Overall Grade",
+        "Letter Grade",
+      ]);
 
-    link.download =
-      selectedCourse === "All Courses"
-        ? "all-course-grades.csv"
-        : `${selectedCourse.replace(
-            " ",
-            "-"
-          )}-grades.csv`;
+      studentsToExport.forEach(
+        (student) => {
+          csvRows.push([
+            student.studentName,
+            student.studentId,
+            student.courseCode,
+            `${student.overallGrade}%`,
+            student.letterGrade,
+          ]);
+        }
+      );
 
-    document.body.appendChild(link);
+      const csvContent =
+        csvRows
+          .map((row) =>
+            row
+              .map(
+                (value) =>
+                  `"${value}"`
+              )
+              .join(",")
+          )
+          .join("\n");
 
-    link.click();
+      const blob =
+        new Blob(
+          [csvContent],
+          {
+            type: "text/csv",
+          }
+        );
 
-    document.body.removeChild(link);
+      const url =
+        URL.createObjectURL(
+          blob
+        );
 
-    URL.revokeObjectURL(url);
-  };
+      const link =
+        document.createElement(
+          "a"
+        );
+
+      link.href = url;
+
+      link.download =
+        selectedCourse ===
+        "All Courses"
+          ? "all-course-grades.csv"
+          : `${selectedCourse.replace(
+              " ",
+              "-"
+            )}-grades.csv`;
+
+      document.body.appendChild(
+        link
+      );
+
+      link.click();
+
+      document.body.removeChild(
+        link
+      );
+
+      URL.revokeObjectURL(url);
+    };
 
   return (
     <div className="gradebook-layout">
@@ -501,19 +814,50 @@ function InstructorGradebook() {
             <h1>Gradebook</h1>
 
             <p>
-              Review and manage student grades
-              across your courses.
+              Review and manage
+              student grades across
+              your courses.
             </p>
           </div>
 
           <button
             className="gradebook-primary-button"
-            onClick={handleExportGrades}
+            onClick={
+              handleExportGrades
+            }
           >
-            <Download size={19} />
+            <Download
+              size={19}
+            />
+
             Export Grades
           </button>
         </header>
+
+        {pageError && (
+          <div
+            style={{
+              margin:
+                "20px 0",
+              padding:
+                "12px 14px",
+              border:
+                "1px solid #fecaca",
+              borderRadius:
+                "8px",
+              background:
+                "#fef2f2",
+              color:
+                "#b91c1c",
+              fontSize:
+                "13px",
+              fontWeight:
+                "600",
+            }}
+          >
+            {pageError}
+          </div>
+        )}
 
         <section className="gradebook-stat-grid">
           <article className="gradebook-stat-card">
@@ -522,24 +866,34 @@ function InstructorGradebook() {
             </div>
 
             <div>
-              <span>Total Students</span>
+              <span>
+                Total Students
+              </span>
 
               <strong>
-                {displayedStudents.length}
+                {isLoading
+                  ? "..."
+                  : displayedStudents.length}
               </strong>
             </div>
           </article>
 
           <article className="gradebook-stat-card">
             <div className="gradebook-stat-icon average">
-              <TrendingUp size={22} />
+              <TrendingUp
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Class Average</span>
+              <span>
+                Class Average
+              </span>
 
               <strong>
-                {classAverage}%
+                {isLoading
+                  ? "..."
+                  : `${classAverage}%`}
               </strong>
             </div>
           </article>
@@ -550,24 +904,34 @@ function InstructorGradebook() {
             </div>
 
             <div>
-              <span>Highest Grade</span>
+              <span>
+                Highest Grade
+              </span>
 
               <strong>
-                {highestGrade}%
+                {isLoading
+                  ? "..."
+                  : `${highestGrade}%`}
               </strong>
             </div>
           </article>
 
           <article className="gradebook-stat-card">
             <div className="gradebook-stat-icon passing">
-              <GraduationCap size={22} />
+              <GraduationCap
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Passing Rate</span>
+              <span>
+                Passing Rate
+              </span>
 
               <strong>
-                {passingPercentage}%
+                {isLoading
+                  ? "..."
+                  : `${passingPercentage}%`}
               </strong>
             </div>
           </article>
@@ -580,8 +944,12 @@ function InstructorGradebook() {
             <input
               type="text"
               placeholder="Search students, IDs, or courses..."
-              value={searchTerm}
-              onChange={(event) =>
+              value={
+                searchTerm
+              }
+              onChange={(
+                event
+              ) =>
                 setSearchTerm(
                   event.target.value
                 )
@@ -591,8 +959,12 @@ function InstructorGradebook() {
 
           <select
             className="gradebook-course-filter"
-            value={selectedCourse}
-            onChange={(event) =>
+            value={
+              selectedCourse
+            }
+            onChange={(
+              event
+            ) =>
               setSelectedCourse(
                 event.target.value
               )
@@ -601,8 +973,12 @@ function InstructorGradebook() {
             {courseOptions.map(
               (course) => (
                 <option
-                  key={course}
-                  value={course}
+                  key={
+                    course
+                  }
+                  value={
+                    course
+                  }
                 >
                   {course}
                 </option>
@@ -611,7 +987,7 @@ function InstructorGradebook() {
           </select>
         </section>
 
-        {selectedCourseSetup && (
+        {selectedCourseInformation && (
           <section className="grade-weight-summary">
             <div className="grade-weight-summary-header">
               <div>
@@ -621,79 +997,157 @@ function InstructorGradebook() {
 
                 <p>
                   {
-                    selectedCourseSetup.courseName
+                    selectedCourseInformation.name
                   }
                 </p>
               </div>
 
               <strong>
-                {selectedCourse}
+                {
+                  selectedCourseInformation.code
+                }
               </strong>
             </div>
 
             <div className="grade-weight-list">
-              {selectedCourseSetup.categories.map(
+              {defaultGradeCategories.map(
                 (category) => (
                   <div
                     className="grade-weight-item"
-                    key={category.name}
+                    key={
+                      category.name
+                    }
                   >
                     <span>
-                      {category.name}
+                      {
+                        category.name
+                      }
                     </span>
 
                     <strong>
-                      {category.weight}%
+                      {
+                        category.weight
+                      }
+                      %
                     </strong>
                   </div>
                 )
               )}
             </div>
+
+            <p
+              style={{
+                margin:
+                  "12px 0 0",
+                fontSize:
+                  "12px",
+                color:
+                  "#64748b",
+              }}
+            >
+              Category weights are
+              currently managed by the
+              frontend because no grading
+              category service is connected.
+            </p>
           </section>
         )}
 
         <section className="gradebook-list-panel">
           <div className="gradebook-list-heading">
             <div>
-              <h2>Student Grades</h2>
+              <h2>
+                Student Grades
+              </h2>
 
               <p>
-                Showing{" "}
-                {filteredStudents.length} of{" "}
-                {studentsWithGrades.length}{" "}
-                students
+                {isLoading
+                  ? "Loading students..."
+                  : `Showing ${filteredStudents.length} of ${studentsWithGrades.length} students`}
               </p>
             </div>
           </div>
 
-          {filteredStudents.length > 0 ? (
+          {isLoading ? (
+            <div className="empty-gradebook-message">
+              <BookOpen
+                size={36}
+              />
+
+              <h3>
+                Loading gradebook...
+              </h3>
+
+              <p>
+                Retrieving students
+                from your courses.
+              </p>
+            </div>
+          ) : filteredStudents.length >
+            0 ? (
             <div className="gradebook-table-wrapper">
               <table className="gradebook-table">
                 <thead>
                   <tr>
-                    <th>Student</th>
-                    <th>Course</th>
-                    <th>Category Grades</th>
-                    <th>Overall</th>
-                    <th>Letter Grade</th>
-                    <th>Action</th>
+                    <th>
+                      Student
+                    </th>
+
+                    <th>
+                      Course
+                    </th>
+
+                    <th>
+                      Category Grades
+                    </th>
+
+                    <th>
+                      Overall
+                    </th>
+
+                    <th>
+                      Letter Grade
+                    </th>
+
+                    <th>
+                      Action
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {filteredStudents.map(
-                    (student) => (
-                      <tr key={student.id}>
+                    (
+                      student
+                    ) => (
+                      <tr
+                        key={
+                          student.id
+                        }
+                      >
                         <td>
                           <div className="gradebook-student-cell">
                             <div className="gradebook-student-avatar">
                               {student.studentName
-                                .split(" ")
+                                .split(
+                                  " "
+                                )
+                                .filter(
+                                  Boolean
+                                )
                                 .map(
-                                  (name) =>
+                                  (
+                                    name
+                                  ) =>
                                     name[0]
                                 )
-                                .join("")}
+                                .join(
+                                  ""
+                                )
+                                .slice(
+                                  0,
+                                  2
+                                )}
                             </div>
 
                             <div>
@@ -731,10 +1185,10 @@ function InstructorGradebook() {
 
                         <td>
                           <div className="grade-category-preview">
-                            {courseGradingSetups[
-                              student.courseCode
-                            ].categories.map(
-                              (category) => (
+                            {defaultGradeCategories.map(
+                              (
+                                category
+                              ) => (
                                 <div
                                   key={
                                     category.name
@@ -748,7 +1202,8 @@ function InstructorGradebook() {
 
                                   <strong>
                                     {
-                                      student.grades[
+                                      student
+                                        .grades[
                                         category
                                           .name
                                       ]
@@ -815,13 +1270,18 @@ function InstructorGradebook() {
             </div>
           ) : (
             <div className="empty-gradebook-message">
-              <BookOpen size={36} />
+              <BookOpen
+                size={36}
+              />
 
-              <h3>No students found</h3>
+              <h3>
+                No students found
+              </h3>
 
               <p>
-                Try changing your search or
-                course filter.
+                Try changing your
+                search or course
+                filter.
               </p>
             </div>
           )}
@@ -858,7 +1318,9 @@ function InstructorGradebook() {
                 <button
                   className="gradebook-modal-close"
                   onClick={() =>
-                    setShowEditModal(false)
+                    setShowEditModal(
+                      false
+                    )
                   }
                 >
                   <X size={22} />
@@ -867,7 +1329,9 @@ function InstructorGradebook() {
 
               <section className="student-grade-summary">
                 <div>
-                  <span>Student ID</span>
+                  <span>
+                    Student ID
+                  </span>
 
                   <strong>
                     {
@@ -878,7 +1342,8 @@ function InstructorGradebook() {
 
                 <div>
                   <span>
-                    Current Overall Grade
+                    Current Overall
+                    Grade
                   </span>
 
                   <strong>
@@ -890,7 +1355,9 @@ function InstructorGradebook() {
                 </div>
 
                 <div>
-                  <span>Letter Grade</span>
+                  <span>
+                    Letter Grade
+                  </span>
 
                   <strong>
                     {getLetterGrade(
@@ -903,22 +1370,29 @@ function InstructorGradebook() {
               </section>
 
               <div className="gradebook-edit-category-list">
-                {courseGradingSetups[
-                  selectedStudent.courseCode
-                ].categories.map(
-                  (category) => (
+                {defaultGradeCategories.map(
+                  (
+                    category
+                  ) => (
                     <div
                       className="gradebook-edit-category"
-                      key={category.name}
+                      key={
+                        category.name
+                      }
                     >
                       <div>
                         <label>
-                          {category.name}
+                          {
+                            category.name
+                          }
                         </label>
 
                         <span>
                           Weight:{" "}
-                          {category.weight}%
+                          {
+                            category.weight
+                          }
+                          %
                         </span>
                       </div>
 
@@ -930,28 +1404,54 @@ function InstructorGradebook() {
                           value={
                             selectedStudent
                               .grades[
-                              category.name
+                              category
+                                .name
                             ]
                           }
-                          onChange={(event) =>
+                          onChange={(
+                            event
+                          ) =>
                             handleGradeChange(
                               category.name,
-                              event.target
+                              event
+                                .target
                                 .value
                             )
                           }
                         />
 
-                        <span>%</span>
+                        <span>
+                          %
+                        </span>
                       </div>
                     </div>
                   )
                 )}
               </div>
 
+              <p
+                style={{
+                  margin:
+                    "12px 0",
+                  fontSize:
+                    "12px",
+                  color:
+                    "#64748b",
+                }}
+              >
+                Category percentages
+                are calculated in the
+                frontend. Saving sends
+                the resulting final
+                letter grade to the
+                grading service.
+              </p>
+
               {saveMessage && (
                 <div className="gradebook-save-message">
-                  {saveMessage}
+                  {
+                    saveMessage
+                  }
                 </div>
               )}
 
@@ -959,7 +1459,9 @@ function InstructorGradebook() {
                 <button
                   className="gradebook-modal-cancel"
                   onClick={() =>
-                    setShowEditModal(false)
+                    setShowEditModal(
+                      false
+                    )
                   }
                 >
                   Cancel
@@ -970,9 +1472,17 @@ function InstructorGradebook() {
                   onClick={
                     handleSaveGrades
                   }
+                  disabled={
+                    isSaving
+                  }
                 >
-                  <Save size={17} />
-                  Save Grades
+                  <Save
+                    size={17}
+                  />
+
+                  {isSaving
+                    ? "Saving..."
+                    : "Save Grades"}
                 </button>
               </div>
             </section>

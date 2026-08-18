@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   CalendarDays,
@@ -20,76 +24,20 @@ import {
 
 import InstructorSidebar from "./components/InstructorSidebar";
 
+import {
+  getCurrentUser,
+} from "../../backend/userServices.js";
+
+import {
+  getCoursesForInstructor,
+} from "../../backend/courseServices.js";
+
+import {
+  createAssignment,
+  getAssignmentsForCourse,
+} from "../../backend/assignmentServices.js";
+
 import "./InstructorAssignments.css";
-
-const initialAssignments = [
-  {
-    id: 1,
-    title: "Responsive Website Project",
-    courseCode: "CSCI 510",
-    courseName: "Web Application Development",
-    dueDate: "2026-08-12",
-    category: "Assignments",
-    points: 100,
-    description:
-      "Create a responsive website using HTML, CSS, and JavaScript.",
-    submissions: 24,
-    totalStudents: 32,
-    status: "Published",
-    allowResubmission: true,
-    submissionType: "File + Written Response",
-    instructorFile: "project-instructions.pdf",
-  },
-  {
-    id: 2,
-    title: "Software Requirements Document",
-    courseCode: "CSCI 633",
-    courseName: "Software Engineering",
-    dueDate: "2026-08-15",
-    category: "Assignments",
-    points: 100,
-    description:
-      "Create a software requirements document for your semester project.",
-    submissions: 18,
-    totalStudents: 28,
-    status: "Published",
-    allowResubmission: true,
-    submissionType: "File Upload",
-    instructorFile: "requirements-template.docx",
-  },
-  {
-    id: 3,
-    title: "Search Algorithms Analysis",
-    courseCode: "CSCI 721",
-    courseName: "Artificial Intelligence",
-    dueDate: "2026-08-20",
-    category: "Assignments",
-    points: 100,
-    description:
-      "Compare and analyze multiple search algorithms.",
-    submissions: 0,
-    totalStudents: 24,
-    status: "Draft",
-    allowResubmission: false,
-    submissionType: "Written Response",
-    instructorFile: "",
-  },
-];
-
-const temporaryCourses = [
-  {
-    code: "CSCI 510",
-    name: "Web Application Development",
-  },
-  {
-    code: "CSCI 633",
-    name: "Software Engineering",
-  },
-  {
-    code: "CSCI 721",
-    name: "Artificial Intelligence",
-  },
-];
 
 const temporaryCategories = [
   "Assignments",
@@ -99,6 +47,11 @@ const temporaryCategories = [
   "Final Exam",
 ];
 
+/*
+ * Student submissions remain temporary until
+ * instructor-side submission retrieval and
+ * grading service functions are available.
+ */
 const temporarySubmissions = [
   {
     id: 1,
@@ -110,7 +63,8 @@ const temporarySubmissions = [
     feedback: "",
     writtenResponse:
       "For this project, I created a responsive website using CSS Grid and Flexbox. I also added media queries so the layout adjusts properly on tablets and mobile devices.",
-    submittedFile: "alex-responsive-project.zip",
+    submittedFile:
+      "alex-responsive-project.zip",
   },
   {
     id: 2,
@@ -122,7 +76,8 @@ const temporarySubmissions = [
     feedback: "",
     writtenResponse:
       "My project focuses on responsive navigation and reusable React components.",
-    submittedFile: "jordan-project.pdf",
+    submittedFile:
+      "jordan-project.pdf",
   },
   {
     id: 3,
@@ -131,231 +86,708 @@ const temporarySubmissions = [
     submittedAt: "August 11, 2026",
     status: "Graded",
     grade: "92",
-    feedback: "Great work overall.",
+    feedback:
+      "Great work overall.",
     writtenResponse:
       "I used responsive CSS layouts and tested the page at multiple screen sizes.",
-    submittedFile: "taylor-project.zip",
+    submittedFile:
+      "taylor-project.zip",
   },
 ];
 
+function getResponseData(result) {
+  return result?.data ?? result;
+}
+
+function getCoursesFromResult(result) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.courses)
+  ) {
+    return data.courses;
+  }
+
+  return [];
+}
+
+function getAssignmentsFromResult(
+  result
+) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.assignments)
+  ) {
+    return data.assignments;
+  }
+
+  return [];
+}
+
+function normalizeCourse(
+  course,
+  index
+) {
+  return {
+    ...course,
+
+    id:
+      course.id ??
+      course.course_id ??
+      course.courseID,
+
+    code:
+      course.code ??
+      course.course_code ??
+      course.courseCode ??
+      `COURSE ${index + 1}`,
+
+    name:
+      course.name ??
+      course.title ??
+      course.course_name ??
+      course.courseName ??
+      "Untitled Course",
+
+    students:
+      Number(
+        course.students ??
+          course.student_count ??
+          course.total_students ??
+          course.seats_taken ??
+          0
+      ),
+  };
+}
+
+function normalizeAssignment(
+  assignment,
+  course
+) {
+  return {
+    ...assignment,
+
+    id:
+      assignment.id ??
+      assignment.assignment_id,
+
+    title:
+      assignment.title ??
+      "Untitled Assignment",
+
+    courseId:
+      course.id,
+
+    courseCode:
+      course.code,
+
+    courseName:
+      course.name,
+
+    dueDate:
+      assignment.dueDate ??
+      assignment.due_date ??
+      "",
+
+    category:
+      assignment.category ??
+      "Assignments",
+
+    points:
+      Number(
+        assignment.points ??
+          assignment.max_points ??
+          100
+      ),
+
+    description:
+      assignment.description ??
+      "",
+
+    submissions:
+      Number(
+        assignment.submissions ??
+          assignment.submission_count ??
+          0
+      ),
+
+    totalStudents:
+      Number(
+        course.students ?? 0
+      ),
+
+    status:
+      assignment.status ??
+      "Published",
+
+    allowResubmission:
+      Boolean(
+        assignment.allowResubmission ??
+          assignment.allow_resubmission ??
+          false
+      ),
+
+    submissionType:
+      assignment.submissionType ??
+      assignment.submission_type ??
+      "File Upload",
+
+    instructorFile:
+      assignment.instructorFile ??
+      "",
+
+    assignmentLink:
+      assignment.assignmentLink ??
+      assignment.assignment_link ??
+      "",
+  };
+}
+
 function InstructorAssignments() {
   const [assignments, setAssignments] =
-    useState(initialAssignments);
+    useState([]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCourse, setSelectedCourse] =
-    useState("All Courses");
-  const [selectedStatus, setSelectedStatus] =
-    useState("All Statuses");
+  const [courses, setCourses] =
+    useState([]);
 
-  const [showCreateModal, setShowCreateModal] =
+  const [
+    instructorID,
+    setInstructorID,
+  ] = useState(null);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isCreating, setIsCreating] =
     useState(false);
 
-  const [showManageModal, setShowManageModal] =
-    useState(false);
+  const [pageError, setPageError] =
+    useState("");
 
-  const [showSubmissionModal, setShowSubmissionModal] =
-    useState(false);
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
 
-  const [selectedAssignment, setSelectedAssignment] =
-    useState(null);
+  const [
+    selectedCourse,
+    setSelectedCourse,
+  ] = useState("All Courses");
+
+  const [
+    selectedStatus,
+    setSelectedStatus,
+  ] = useState("All Statuses");
+
+  const [
+    showCreateModal,
+    setShowCreateModal,
+  ] = useState(false);
+
+  const [
+    showManageModal,
+    setShowManageModal,
+  ] = useState(false);
+
+  const [
+    showSubmissionModal,
+    setShowSubmissionModal,
+  ] = useState(false);
+
+  const [
+    selectedAssignment,
+    setSelectedAssignment,
+  ] = useState(null);
 
   const [submissions, setSubmissions] =
-    useState(temporarySubmissions);
+    useState(
+      temporarySubmissions
+    );
 
-  const [selectedSubmission, setSelectedSubmission] =
-    useState(null);
+  const [
+    selectedSubmission,
+    setSelectedSubmission,
+  ] = useState(null);
 
-  const [formError, setFormError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
+  const [
+    formError,
+    setFormError,
+  ] = useState("");
 
-  const [assignmentForm, setAssignmentForm] = useState({
+  const [
+    saveMessage,
+    setSaveMessage,
+  ] = useState("");
+
+  const [
+    assignmentForm,
+    setAssignmentForm,
+  ] = useState({
     title: "",
-    courseCode: "",
+    courseId: "",
     description: "",
     dueDate: "",
     category: "",
     points: "",
     status: "Draft",
     allowResubmission: false,
-    submissionType: "File Upload",
+    submissionType:
+      "File Upload",
     instructorFile: "",
+    assignmentLink: "",
   });
 
-  const courseOptions = useMemo(() => {
-    return [
-      "All Courses",
-      ...new Set(
-        assignments.map(
-          (assignment) => assignment.courseCode
-        )
-      ),
-    ];
-  }, [assignments]);
+  /*
+   * Load the logged-in instructor,
+   * their real courses, and assignments
+   * for each of those courses.
+   */
+  useEffect(() => {
+    async function loadAssignmentsPage() {
+      setIsLoading(true);
+      setPageError("");
 
-  const filteredAssignments = useMemo(() => {
-    return assignments.filter((assignment) => {
-      const normalizedSearch =
-        searchTerm.toLowerCase().trim();
+      const userResult =
+        await getCurrentUser();
 
-      const matchesSearch =
-        assignment.title
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        assignment.courseCode
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        assignment.courseName
-          .toLowerCase()
-          .includes(normalizedSearch);
+      if (!userResult.success) {
+        setPageError(
+          userResult.error ||
+            "Unable to load the current instructor."
+        );
 
-      const matchesCourse =
-        selectedCourse === "All Courses" ||
-        assignment.courseCode === selectedCourse;
+        setIsLoading(false);
+        return;
+      }
 
-      const matchesStatus =
-        selectedStatus === "All Statuses" ||
-        assignment.status === selectedStatus;
+      const user =
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
 
-      return (
-        matchesSearch &&
-        matchesCourse &&
-        matchesStatus
+      const currentInstructorID =
+        user?.user_id ??
+        user?.id ??
+        user?.userId;
+
+      if (!currentInstructorID) {
+        setPageError(
+          "The logged-in instructor ID could not be found."
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      setInstructorID(
+        currentInstructorID
       );
-    });
-  }, [
-    assignments,
-    searchTerm,
-    selectedCourse,
-    selectedStatus,
-  ]);
 
-  const publishedAssignments = assignments.filter(
-    (assignment) =>
-      assignment.status === "Published"
-  ).length;
+      const courseResult =
+        await getCoursesForInstructor(
+          currentInstructorID
+        );
 
-  const draftAssignments = assignments.filter(
-    (assignment) => assignment.status === "Draft"
-  ).length;
+      if (!courseResult.success) {
+        setPageError(
+          courseResult.error ||
+            "Unable to load instructor courses."
+        );
 
-  const totalSubmissions = assignments.reduce(
-    (total, assignment) =>
-      total + assignment.submissions,
-    0
-  );
+        setIsLoading(false);
+        return;
+      }
+
+      const backendCourses =
+        getCoursesFromResult(
+          courseResult
+        );
+
+      const normalizedCourses =
+        backendCourses.map(
+          (course, index) =>
+            normalizeCourse(
+              course,
+              index
+            )
+        );
+
+      setCourses(
+        normalizedCourses
+      );
+
+      const assignmentRequests =
+        normalizedCourses.map(
+          async (course) => {
+            if (!course.id) {
+              return [];
+            }
+
+            const assignmentResult =
+              await getAssignmentsForCourse(
+                course.id
+              );
+
+            if (
+              !assignmentResult.success
+            ) {
+              return [];
+            }
+
+            const backendAssignments =
+              getAssignmentsFromResult(
+                assignmentResult
+              );
+
+            return backendAssignments.map(
+              (assignment) =>
+                normalizeAssignment(
+                  assignment,
+                  course
+                )
+            );
+          }
+        );
+
+      const assignmentGroups =
+        await Promise.all(
+          assignmentRequests
+        );
+
+      setAssignments(
+        assignmentGroups.flat()
+      );
+
+      setIsLoading(false);
+    }
+
+    loadAssignmentsPage();
+  }, []);
+
+  const reloadAssignmentsForCourse =
+    async (course) => {
+      if (!course?.id) {
+        return;
+      }
+
+      const result =
+        await getAssignmentsForCourse(
+          course.id
+        );
+
+      if (!result.success) {
+        setPageError(
+          result.error ||
+            "Unable to refresh assignments."
+        );
+
+        return;
+      }
+
+      const backendAssignments =
+        getAssignmentsFromResult(
+          result
+        );
+
+      const normalizedAssignments =
+        backendAssignments.map(
+          (assignment) =>
+            normalizeAssignment(
+              assignment,
+              course
+            )
+        );
+
+      setAssignments(
+        (previousAssignments) => [
+          ...previousAssignments.filter(
+            (assignment) =>
+              String(
+                assignment.courseId
+              ) !==
+              String(course.id)
+          ),
+
+          ...normalizedAssignments,
+        ]
+      );
+    };
+
+  const courseOptions =
+    useMemo(() => {
+      return [
+        "All Courses",
+        ...new Set(
+          assignments.map(
+            (assignment) =>
+              assignment.courseCode
+          )
+        ),
+      ];
+    }, [assignments]);
+
+  const filteredAssignments =
+    useMemo(() => {
+      return assignments.filter(
+        (assignment) => {
+          const normalizedSearch =
+            searchTerm
+              .toLowerCase()
+              .trim();
+
+          const matchesSearch =
+            assignment.title
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            assignment.courseCode
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            assignment.courseName
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              );
+
+          const matchesCourse =
+            selectedCourse ===
+              "All Courses" ||
+            assignment.courseCode ===
+              selectedCourse;
+
+          const matchesStatus =
+            selectedStatus ===
+              "All Statuses" ||
+            assignment.status ===
+              selectedStatus;
+
+          return (
+            matchesSearch &&
+            matchesCourse &&
+            matchesStatus
+          );
+        }
+      );
+    }, [
+      assignments,
+      searchTerm,
+      selectedCourse,
+      selectedStatus,
+    ]);
+
+  const publishedAssignments =
+    assignments.filter(
+      (assignment) =>
+        assignment.status ===
+        "Published"
+    ).length;
+
+  const draftAssignments =
+    assignments.filter(
+      (assignment) =>
+        assignment.status ===
+        "Draft"
+    ).length;
+
+  const totalSubmissions =
+    assignments.reduce(
+      (total, assignment) =>
+        total +
+        Number(
+          assignment.submissions ||
+            0
+        ),
+      0
+    );
 
   const resetAssignmentForm = () => {
     setAssignmentForm({
       title: "",
-      courseCode: "",
+      courseId: "",
       description: "",
       dueDate: "",
       category: "",
       points: "",
       status: "Draft",
       allowResubmission: false,
-      submissionType: "File Upload",
+      submissionType:
+        "File Upload",
       instructorFile: "",
+      assignmentLink: "",
     });
 
     setFormError("");
   };
 
-  const handleAssignmentFormChange = (event) => {
-    const { name, value, type, checked } =
-      event.target;
+  const handleAssignmentFormChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
-    setAssignmentForm((previousForm) => ({
-      ...previousForm,
-      [name]:
-        type === "checkbox" ? checked : value,
-    }));
+    setAssignmentForm(
+      (previousForm) => ({
+        ...previousForm,
+
+        [name]:
+          type === "checkbox"
+            ? checked
+            : value,
+      })
+    );
 
     setFormError("");
   };
 
-  const handleInstructorFile = (event) => {
-    const file = event.target.files?.[0];
+  const handleInstructorFile = (
+    event
+  ) => {
+    const file =
+      event.target.files?.[0];
 
-    setAssignmentForm((previousForm) => ({
-      ...previousForm,
-      instructorFile: file ? file.name : "",
-    }));
+    setAssignmentForm(
+      (previousForm) => ({
+        ...previousForm,
+
+        instructorFile:
+          file
+            ? file.name
+            : "",
+      })
+    );
   };
 
-  const handleCreateAssignment = (event) => {
-    event.preventDefault();
+  /*
+   * Creates the assignment through
+   * assignmentServices.js.
+   */
+  const handleCreateAssignment =
+    async (event) => {
+      event.preventDefault();
 
-    if (
-      !assignmentForm.title.trim() ||
-      !assignmentForm.courseCode ||
-      !assignmentForm.dueDate ||
-      !assignmentForm.category ||
-      !assignmentForm.points
-    ) {
-      setFormError(
-        "Please complete all required assignment fields."
+      setFormError("");
+
+      if (
+        !assignmentForm.title.trim() ||
+        !assignmentForm.courseId ||
+        !assignmentForm.dueDate ||
+        !assignmentForm.category ||
+        !assignmentForm.points
+      ) {
+        setFormError(
+          "Please complete all required assignment fields."
+        );
+
+        return;
+      }
+
+      const selectedCourseInformation =
+        courses.find(
+          (course) =>
+            String(course.id) ===
+            String(
+              assignmentForm.courseId
+            )
+        );
+
+      if (
+        !selectedCourseInformation
+      ) {
+        setFormError(
+          "Please select a valid course."
+        );
+
+        return;
+      }
+
+      setIsCreating(true);
+
+      const result =
+        await createAssignment(
+          Number(
+            assignmentForm.courseId
+          ),
+          assignmentForm.title.trim(),
+          assignmentForm.dueDate,
+          Number(
+            assignmentForm.points
+          ),
+          assignmentForm.assignmentLink.trim() ||
+            null,
+          assignmentForm.allowResubmission
+        );
+
+      setIsCreating(false);
+
+      if (!result.success) {
+        setFormError(
+          result.error ||
+            "Unable to create assignment."
+        );
+
+        return;
+      }
+
+      /*
+       * Reload the course's assignments
+       * from the backend so the page
+       * displays the real stored data.
+       */
+      await reloadAssignmentsForCourse(
+        selectedCourseInformation
       );
 
-      return;
-    }
+      setShowCreateModal(false);
 
-    const selectedCourseInformation =
-      temporaryCourses.find(
-        (course) =>
-          course.code ===
-          assignmentForm.courseCode
-      );
-
-    const newAssignment = {
-      id: Date.now(),
-      title: assignmentForm.title.trim(),
-      courseCode: assignmentForm.courseCode,
-      courseName:
-        selectedCourseInformation?.name || "",
-      dueDate: assignmentForm.dueDate,
-      category: assignmentForm.category,
-      points: Number(assignmentForm.points),
-      description:
-        assignmentForm.description.trim(),
-      submissions: 0,
-      totalStudents: 0,
-      status: assignmentForm.status,
-      allowResubmission:
-        assignmentForm.allowResubmission,
-      submissionType:
-        assignmentForm.submissionType,
-      instructorFile:
-        assignmentForm.instructorFile,
+      resetAssignmentForm();
     };
 
-    setAssignments((previousAssignments) => [
-      ...previousAssignments,
-      newAssignment,
-    ]);
+  const handleManageAssignment = (
+    assignment
+  ) => {
+    setSelectedAssignment({
+      ...assignment,
+    });
 
-    setShowCreateModal(false);
-
-    resetAssignmentForm();
-  };
-
-  const handleManageAssignment = (assignment) => {
-    setSelectedAssignment({ ...assignment });
     setSelectedSubmission(null);
+
     setSaveMessage("");
+
     setShowManageModal(true);
   };
 
   const handleManageAssignmentChange = (
     event
   ) => {
-    const { name, value, type, checked } =
-      event.target;
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
     setSelectedAssignment(
       (previousAssignment) => ({
         ...previousAssignment,
+
         [name]:
           type === "checkbox"
             ? checked
@@ -366,59 +798,87 @@ function InstructorAssignments() {
     setSaveMessage("");
   };
 
-  const handleSaveAssignment = () => {
-    setAssignments((previousAssignments) =>
-      previousAssignments.map(
-        (assignment) =>
-          assignment.id ===
-          selectedAssignment.id
-            ? {
-                ...selectedAssignment,
-                points: Number(
-                  selectedAssignment.points
-                ),
-              }
-            : assignment
-      )
-    );
+  /*
+   * No update-assignment service has been
+   * connected yet, so editing remains local.
+   */
+  const handleSaveAssignment =
+    () => {
+      setAssignments(
+        (previousAssignments) =>
+          previousAssignments.map(
+            (assignment) =>
+              assignment.id ===
+              selectedAssignment.id
+                ? {
+                    ...selectedAssignment,
 
-    setSaveMessage(
-      "Assignment changes saved temporarily."
-    );
-  };
+                    points:
+                      Number(
+                        selectedAssignment.points
+                      ),
+                  }
+                : assignment
+          )
+      );
+
+      setSaveMessage(
+        "Assignment changes saved temporarily."
+      );
+    };
 
   const handleSubmissionSelect = (
     submission
   ) => {
-    setSelectedSubmission({ ...submission });
+    setSelectedSubmission({
+      ...submission,
+    });
+
     setSaveMessage("");
   };
 
-  const handleSubmissionChange = (event) => {
-    const { name, value } = event.target;
+  const handleSubmissionChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
 
     setSelectedSubmission(
       (previousSubmission) => ({
         ...previousSubmission,
+
         [name]: value,
       })
     );
   };
 
-  const handleViewSubmission = () => {
-    if (!selectedSubmission) {
-      return;
-    }
+  const handleViewSubmission =
+    () => {
+      if (!selectedSubmission) {
+        return;
+      }
 
-    setShowSubmissionModal(true);
-  };
+      setShowSubmissionModal(true);
+    };
 
+  /*
+   * Submission grading remains temporary
+   * until an instructor grading/update
+   * service is available.
+   */
   const handleSaveGrade = () => {
     if (
-      selectedSubmission.grade === "" ||
-      Number(selectedSubmission.grade) < 0 ||
-      Number(selectedSubmission.grade) >
-        Number(selectedAssignment.points)
+      selectedSubmission.grade ===
+        "" ||
+      Number(
+        selectedSubmission.grade
+      ) < 0 ||
+      Number(
+        selectedSubmission.grade
+      ) >
+        Number(
+          selectedAssignment.points
+        )
     ) {
       setSaveMessage(
         `Enter a grade between 0 and ${selectedAssignment.points}.`
@@ -429,16 +889,19 @@ function InstructorAssignments() {
 
     const updatedSubmission = {
       ...selectedSubmission,
+
       status: "Graded",
     };
 
-    setSubmissions((previousSubmissions) =>
-      previousSubmissions.map((submission) =>
-        submission.id ===
-        updatedSubmission.id
-          ? updatedSubmission
-          : submission
-      )
+    setSubmissions(
+      (previousSubmissions) =>
+        previousSubmissions.map(
+          (submission) =>
+            submission.id ===
+            updatedSubmission.id
+              ? updatedSubmission
+              : submission
+        )
     );
 
     setSelectedSubmission(
@@ -464,8 +927,8 @@ function InstructorAssignments() {
             <h1>Assignments</h1>
 
             <p>
-              Create, publish, and manage course
-              assignments.
+              Create, publish, and manage
+              course assignments.
             </p>
           </div>
 
@@ -480,41 +943,89 @@ function InstructorAssignments() {
           </button>
         </header>
 
+        {pageError && (
+          <div
+            style={{
+              margin:
+                "20px 0",
+              padding:
+                "12px 14px",
+              border:
+                "1px solid #fecaca",
+              borderRadius:
+                "8px",
+              background:
+                "#fef2f2",
+              color:
+                "#b91c1c",
+              fontSize:
+                "13px",
+              fontWeight:
+                "600",
+            }}
+          >
+            {pageError}
+          </div>
+        )}
+
         <section className="assignment-stat-grid">
           <article className="assignment-stat-card">
             <div className="assignment-stat-icon total">
-              <ClipboardList size={22} />
+              <ClipboardList
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Total Assignments</span>
+              <span>
+                Total Assignments
+              </span>
+
               <strong>
-                {assignments.length}
+                {isLoading
+                  ? "..."
+                  : assignments.length}
               </strong>
             </div>
           </article>
 
           <article className="assignment-stat-card">
             <div className="assignment-stat-icon published">
-              <CheckCircle2 size={22} />
+              <CheckCircle2
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Published</span>
+              <span>
+                Published
+              </span>
+
               <strong>
-                {publishedAssignments}
+                {isLoading
+                  ? "..."
+                  : publishedAssignments}
               </strong>
             </div>
           </article>
 
           <article className="assignment-stat-card">
             <div className="assignment-stat-icon draft">
-              <FileEdit size={22} />
+              <FileEdit
+                size={22}
+              />
             </div>
 
             <div>
-              <span>Drafts</span>
-              <strong>{draftAssignments}</strong>
+              <span>
+                Drafts
+              </span>
+
+              <strong>
+                {isLoading
+                  ? "..."
+                  : draftAssignments}
+              </strong>
             </div>
           </article>
 
@@ -524,8 +1035,15 @@ function InstructorAssignments() {
             </div>
 
             <div>
-              <span>Submissions</span>
-              <strong>{totalSubmissions}</strong>
+              <span>
+                Submissions
+              </span>
+
+              <strong>
+                {isLoading
+                  ? "..."
+                  : totalSubmissions}
+              </strong>
             </div>
           </article>
         </section>
@@ -539,32 +1057,44 @@ function InstructorAssignments() {
               placeholder="Search assignments or courses..."
               value={searchTerm}
               onChange={(event) =>
-                setSearchTerm(event.target.value)
+                setSearchTerm(
+                  event.target.value
+                )
               }
             />
           </div>
 
           <div className="assignment-filter-controls">
             <select
-              value={selectedCourse}
+              value={
+                selectedCourse
+              }
               onChange={(event) =>
                 setSelectedCourse(
                   event.target.value
                 )
               }
             >
-              {courseOptions.map((course) => (
-                <option
-                  key={course}
-                  value={course}
-                >
-                  {course}
-                </option>
-              ))}
+              {courseOptions.map(
+                (course) => (
+                  <option
+                    key={
+                      course
+                    }
+                    value={
+                      course
+                    }
+                  >
+                    {course}
+                  </option>
+                )
+              )}
             </select>
 
             <select
-              value={selectedStatus}
+              value={
+                selectedStatus
+              }
               onChange={(event) =>
                 setSelectedStatus(
                   event.target.value
@@ -593,50 +1123,99 @@ function InstructorAssignments() {
         <section className="assignment-list-panel">
           <div className="assignment-list-heading">
             <div>
-              <h2>All Assignments</h2>
+              <h2>
+                All Assignments
+              </h2>
 
               <p>
-                Showing{" "}
-                {filteredAssignments.length} of{" "}
-                {assignments.length} assignments
+                {isLoading
+                  ? "Loading assignments..."
+                  : `Showing ${filteredAssignments.length} of ${assignments.length} assignments`}
               </p>
             </div>
           </div>
 
-          {filteredAssignments.length > 0 ? (
+          {isLoading ? (
+            <div className="empty-assignment-message">
+              <Clock size={36} />
+
+              <h3>
+                Loading assignments...
+              </h3>
+
+              <p>
+                Retrieving assignments
+                from your courses.
+              </p>
+            </div>
+          ) : filteredAssignments.length >
+            0 ? (
             <div className="assignment-table-wrapper">
               <table className="assignment-table">
                 <thead>
                   <tr>
-                    <th>Assignment</th>
-                    <th>Course</th>
-                    <th>Due Date</th>
-                    <th>Submissions</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th>
+                      Assignment
+                    </th>
+
+                    <th>
+                      Course
+                    </th>
+
+                    <th>
+                      Due Date
+                    </th>
+
+                    <th>
+                      Submissions
+                    </th>
+
+                    <th>
+                      Status
+                    </th>
+
+                    <th>
+                      Action
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {filteredAssignments.map(
-                    (assignment) => (
-                      <tr key={assignment.id}>
+                    (
+                      assignment
+                    ) => (
+                      <tr
+                        key={
+                          assignment.id
+                        }
+                      >
                         <td>
                           <div className="assignment-name-cell">
                             <div className="assignment-file-icon">
                               <ClipboardList
-                                size={19}
+                                size={
+                                  19
+                                }
                               />
                             </div>
 
                             <div>
                               <strong>
-                                {assignment.title}
+                                {
+                                  assignment.title
+                                }
                               </strong>
 
                               <span>
-                                {assignment.category} •{" "}
-                                {assignment.points} pts
+                                {
+                                  assignment.category
+                                }{" "}
+                                •{" "}
+                                {
+                                  assignment.points
+                                }{" "}
+                                pts
                               </span>
                             </div>
                           </div>
@@ -661,11 +1240,15 @@ function InstructorAssignments() {
                         <td>
                           <div className="assignment-date-cell">
                             <CalendarDays
-                              size={17}
+                              size={
+                                17
+                              }
                             />
 
                             <span>
-                              {assignment.dueDate}
+                              {
+                                assignment.dueDate
+                              }
                             </span>
                           </div>
                         </td>
@@ -703,7 +1286,12 @@ function InstructorAssignments() {
 
                         <td>
                           <span
-                            className={`assignment-status ${assignment.status.toLowerCase()}`}
+                            className={`assignment-status ${assignment.status
+                              .toLowerCase()
+                              .replace(
+                                /\s+/g,
+                                "-"
+                              )}`}
                           >
                             {
                               assignment.status
@@ -733,17 +1321,20 @@ function InstructorAssignments() {
             <div className="empty-assignment-message">
               <Clock size={36} />
 
-              <h3>No assignments found</h3>
+              <h3>
+                No assignments found
+              </h3>
 
               <p>
-                Try changing your search or
-                filter selections.
+                Try changing your search
+                or filter selections.
               </p>
             </div>
           )}
         </section>
       </main>
 
+      {/* Create Assignment Modal */}
       {showCreateModal && (
         <div className="assignment-modal-overlay">
           <section className="assignment-modal">
@@ -753,13 +1344,18 @@ function InstructorAssignments() {
                   Assignment Management
                 </p>
 
-                <h2>Create Assignment</h2>
+                <h2>
+                  Create Assignment
+                </h2>
               </div>
 
               <button
                 className="assignment-modal-close"
                 onClick={() => {
-                  setShowCreateModal(false);
+                  setShowCreateModal(
+                    false
+                  );
+
                   resetAssignmentForm();
                 }}
               >
@@ -769,16 +1365,22 @@ function InstructorAssignments() {
 
             <form
               className="assignment-form"
-              onSubmit={handleCreateAssignment}
+              onSubmit={
+                handleCreateAssignment
+              }
             >
               <div className="assignment-form-group">
-                <label>Assignment Title *</label>
+                <label>
+                  Assignment Title *
+                </label>
 
                 <input
                   name="title"
                   type="text"
                   placeholder="Enter assignment title"
-                  value={assignmentForm.title}
+                  value={
+                    assignmentForm.title
+                  }
                   onChange={
                     handleAssignmentFormChange
                   }
@@ -787,12 +1389,14 @@ function InstructorAssignments() {
 
               <div className="assignment-form-grid">
                 <div className="assignment-form-group">
-                  <label>Course *</label>
+                  <label>
+                    Course *
+                  </label>
 
                   <select
-                    name="courseCode"
+                    name="courseId"
                     value={
-                      assignmentForm.courseCode
+                      assignmentForm.courseId
                     }
                     onChange={
                       handleAssignmentFormChange
@@ -802,14 +1406,23 @@ function InstructorAssignments() {
                       Select course
                     </option>
 
-                    {temporaryCourses.map(
+                    {courses.map(
                       (course) => (
                         <option
-                          key={course.code}
-                          value={course.code}
+                          key={
+                            course.id
+                          }
+                          value={
+                            course.id
+                          }
                         >
-                          {course.code} -{" "}
-                          {course.name}
+                          {
+                            course.code
+                          }{" "}
+                          -{" "}
+                          {
+                            course.name
+                          }
                         </option>
                       )
                     )}
@@ -835,12 +1448,20 @@ function InstructorAssignments() {
                     </option>
 
                     {temporaryCategories.map(
-                      (category) => (
+                      (
+                        category
+                      ) => (
                         <option
-                          key={category}
-                          value={category}
+                          key={
+                            category
+                          }
+                          value={
+                            category
+                          }
                         >
-                          {category}
+                          {
+                            category
+                          }
                         </option>
                       )
                     )}
@@ -850,7 +1471,9 @@ function InstructorAssignments() {
 
               <div className="assignment-form-grid">
                 <div className="assignment-form-group">
-                  <label>Due Date *</label>
+                  <label>
+                    Due Date *
+                  </label>
 
                   <input
                     name="dueDate"
@@ -885,7 +1508,33 @@ function InstructorAssignments() {
               </div>
 
               <div className="assignment-form-group">
-                <label>Instructions</label>
+                <label>
+                  Assignment Link
+                </label>
+
+                <input
+                  name="assignmentLink"
+                  type="url"
+                  placeholder="https://..."
+                  value={
+                    assignmentForm.assignmentLink
+                  }
+                  onChange={
+                    handleAssignmentFormChange
+                  }
+                />
+
+                <p className="assignment-file-note">
+                  This URL is sent to the
+                  backend as the assignment
+                  link.
+                </p>
+              </div>
+
+              <div className="assignment-form-group">
+                <label>
+                  Instructions
+                </label>
 
                 <textarea
                   name="description"
@@ -898,10 +1547,20 @@ function InstructorAssignments() {
                     handleAssignmentFormChange
                   }
                 />
+
+                <p className="assignment-file-note">
+                  Instructions remain
+                  frontend-only because the
+                  current assignment service
+                  does not include a
+                  description parameter.
+                </p>
               </div>
 
               <div className="assignment-form-group">
-                <label>Submission Type</label>
+                <label>
+                  Submission Type
+                </label>
 
                 <select
                   name="submissionType"
@@ -948,18 +1607,23 @@ function InstructorAssignments() {
                 </label>
 
                 <p className="assignment-file-note">
-                  This is frontend-only for now.
-                  The backend will later store the
-                  uploaded file.
+                  File upload remains
+                  frontend-only. The current
+                  backend service accepts an
+                  assignment URL instead.
                 </p>
               </div>
 
               <div className="assignment-form-group">
-                <label>Status</label>
+                <label>
+                  Status
+                </label>
 
                 <select
                   name="status"
-                  value={assignmentForm.status}
+                  value={
+                    assignmentForm.status
+                  }
                   onChange={
                     handleAssignmentFormChange
                   }
@@ -986,8 +1650,9 @@ function InstructorAssignments() {
                   }
                 />
 
-                Allow students to resubmit
-                before the deadline
+                Allow students to
+                resubmit before the
+                deadline
               </label>
 
               {formError && (
@@ -1001,7 +1666,10 @@ function InstructorAssignments() {
                   type="button"
                   className="assignment-cancel-button"
                   onClick={() => {
-                    setShowCreateModal(false);
+                    setShowCreateModal(
+                      false
+                    );
+
                     resetAssignmentForm();
                   }}
                 >
@@ -1011,9 +1679,15 @@ function InstructorAssignments() {
                 <button
                   type="submit"
                   className="assignment-save-button"
+                  disabled={
+                    isCreating
+                  }
                 >
                   <Plus size={17} />
-                  Create Assignment
+
+                  {isCreating
+                    ? "Creating..."
+                    : "Create Assignment"}
                 </button>
               </div>
             </form>
@@ -1021,6 +1695,7 @@ function InstructorAssignments() {
         </div>
       )}
 
+      {/* Manage Assignment Modal */}
       {showManageModal &&
         selectedAssignment && (
           <div className="assignment-modal-overlay">
@@ -1032,7 +1707,9 @@ function InstructorAssignments() {
                   </p>
 
                   <h2>
-                    {selectedAssignment.title}
+                    {
+                      selectedAssignment.title
+                    }
                   </h2>
 
                   <p>
@@ -1049,7 +1726,9 @@ function InstructorAssignments() {
                 <button
                   className="assignment-modal-close"
                   onClick={() =>
-                    setShowManageModal(false)
+                    setShowManageModal(
+                      false
+                    )
                   }
                 >
                   <X size={22} />
@@ -1058,10 +1737,14 @@ function InstructorAssignments() {
 
               <div className="manage-assignment-layout">
                 <section className="manage-assignment-settings">
-                  <h3>Assignment Details</h3>
+                  <h3>
+                    Assignment Details
+                  </h3>
 
                   <div className="assignment-form-group">
-                    <label>Title</label>
+                    <label>
+                      Title
+                    </label>
 
                     <input
                       name="title"
@@ -1076,7 +1759,9 @@ function InstructorAssignments() {
 
                   <div className="assignment-form-grid">
                     <div className="assignment-form-group">
-                      <label>Due Date</label>
+                      <label>
+                        Due Date
+                      </label>
 
                       <input
                         name="dueDate"
@@ -1124,12 +1809,20 @@ function InstructorAssignments() {
                       }
                     >
                       {temporaryCategories.map(
-                        (category) => (
+                        (
+                          category
+                        ) => (
                           <option
-                            key={category}
-                            value={category}
+                            key={
+                              category
+                            }
+                            value={
+                              category
+                            }
                           >
-                            {category}
+                            {
+                              category
+                            }
                           </option>
                         )
                       )}
@@ -1165,7 +1858,9 @@ function InstructorAssignments() {
                   </div>
 
                   <div className="assignment-form-group">
-                    <label>Instructions</label>
+                    <label>
+                      Instructions
+                    </label>
 
                     <textarea
                       name="description"
@@ -1181,7 +1876,9 @@ function InstructorAssignments() {
 
                   {selectedAssignment.instructorFile && (
                     <div className="assignment-attachment-display">
-                      <Paperclip size={17} />
+                      <Paperclip
+                        size={17}
+                      />
 
                       <span>
                         {
@@ -1191,8 +1888,24 @@ function InstructorAssignments() {
                     </div>
                   )}
 
+                  {selectedAssignment.assignmentLink && (
+                    <div className="assignment-attachment-display">
+                      <Paperclip
+                        size={17}
+                      />
+
+                      <span>
+                        {
+                          selectedAssignment.assignmentLink
+                        }
+                      </span>
+                    </div>
+                  )}
+
                   <div className="assignment-form-group">
-                    <label>Status</label>
+                    <label>
+                      Status
+                    </label>
 
                     <select
                       name="status"
@@ -1241,8 +1954,16 @@ function InstructorAssignments() {
                     <Save size={17} />
                     Save Changes
                   </button>
+
+                  <p className="assignment-file-note">
+                    Editing remains
+                    frontend-only until an
+                    update-assignment service
+                    is available.
+                  </p>
                 </section>
 
+                {/* Temporary submission / grading section */}
                 <section className="assignment-submission-panel">
                   <div className="submission-panel-header">
                     <div>
@@ -1251,19 +1972,25 @@ function InstructorAssignments() {
                       </h3>
 
                       <p>
-                        View submitted work and
-                        enter grades.
+                        View submitted work
+                        and enter grades.
                       </p>
                     </div>
 
-                    <Users size={21} />
+                    <Users
+                      size={21}
+                    />
                   </div>
 
                   <div className="submission-list">
                     {submissions.map(
-                      (submission) => (
+                      (
+                        submission
+                      ) => (
                         <button
-                          key={submission.id}
+                          key={
+                            submission.id
+                          }
                           className={
                             selectedSubmission?.id ===
                             submission.id
@@ -1326,7 +2053,10 @@ function InstructorAssignments() {
                             handleViewSubmission
                           }
                         >
-                          <Eye size={16} />
+                          <Eye
+                            size={16}
+                          />
+
                           View Submission
                         </button>
                       </div>
@@ -1380,17 +2110,23 @@ function InstructorAssignments() {
                           handleSaveGrade
                         }
                       >
-                        <Save size={17} />
+                        <Save
+                          size={17}
+                        />
+
                         Save Grade
                       </button>
                     </div>
                   ) : (
                     <div className="select-submission-message">
-                      <Users size={30} />
+                      <Users
+                        size={30}
+                      />
 
                       <p>
-                        Select a student submission
-                        to review and grade.
+                        Select a student
+                        submission to
+                        review and grade.
                       </p>
                     </div>
                   )}
@@ -1400,12 +2136,22 @@ function InstructorAssignments() {
                       {saveMessage}
                     </div>
                   )}
+
+                  <p className="assignment-file-note">
+                    Student submissions
+                    and grading are still
+                    using temporary frontend
+                    data until instructor
+                    submission/grading
+                    services are connected.
+                  </p>
                 </section>
               </div>
             </section>
           </div>
         )}
 
+      {/* Submission Preview */}
       {showSubmissionModal &&
         selectedSubmission && (
           <div className="assignment-modal-overlay assignment-submission-preview-overlay">
@@ -1432,7 +2178,9 @@ function InstructorAssignments() {
                 <button
                   className="assignment-modal-close"
                   onClick={() =>
-                    setShowSubmissionModal(false)
+                    setShowSubmissionModal(
+                      false
+                    )
                   }
                 >
                   <X size={22} />
@@ -1441,7 +2189,10 @@ function InstructorAssignments() {
 
               <div className="submission-preview-meta">
                 <div>
-                  <span>Student ID</span>
+                  <span>
+                    Student ID
+                  </span>
+
                   <strong>
                     {
                       selectedSubmission.studentId
@@ -1450,7 +2201,10 @@ function InstructorAssignments() {
                 </div>
 
                 <div>
-                  <span>Submitted</span>
+                  <span>
+                    Submitted
+                  </span>
+
                   <strong>
                     {
                       selectedSubmission.submittedAt
@@ -1459,7 +2213,10 @@ function InstructorAssignments() {
                 </div>
 
                 <div>
-                  <span>Submission Type</span>
+                  <span>
+                    Submission Type
+                  </span>
+
                   <strong>
                     {
                       selectedAssignment?.submissionType
@@ -1471,8 +2228,13 @@ function InstructorAssignments() {
               {selectedSubmission.writtenResponse && (
                 <section className="submission-preview-section">
                   <div className="submission-preview-heading">
-                    <FileText size={19} />
-                    <h3>Written Response</h3>
+                    <FileText
+                      size={19}
+                    />
+
+                    <h3>
+                      Written Response
+                    </h3>
                   </div>
 
                   <div className="submission-written-response">
@@ -1486,13 +2248,20 @@ function InstructorAssignments() {
               {selectedSubmission.submittedFile && (
                 <section className="submission-preview-section">
                   <div className="submission-preview-heading">
-                    <Paperclip size={19} />
-                    <h3>Submitted File</h3>
+                    <Paperclip
+                      size={19}
+                    />
+
+                    <h3>
+                      Submitted File
+                    </h3>
                   </div>
 
                   <div className="submission-file-card">
                     <div>
-                      <FileText size={22} />
+                      <FileText
+                        size={22}
+                      />
 
                       <span>
                         {
@@ -1501,8 +2270,13 @@ function InstructorAssignments() {
                       </span>
                     </div>
 
-                    <button type="button">
-                      <Download size={16} />
+                    <button
+                      type="button"
+                    >
+                      <Download
+                        size={16}
+                      />
+
                       Download
                     </button>
                   </div>
@@ -1510,9 +2284,10 @@ function InstructorAssignments() {
               )}
 
               <p className="submission-preview-note">
-                File preview and download will be
-                connected when backend file storage
-                is added.
+                File preview and download
+                will be connected when
+                backend file storage is
+                available.
               </p>
             </section>
           </div>

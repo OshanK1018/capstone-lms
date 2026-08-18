@@ -18,11 +18,8 @@ import {
 } from "../../backend/userServices.js";
 
 import {
-  getCoursesWithInstructor,
-} from "../../backend/instructorServices.js";
-
-import {
   createCourseWithTerm,
+  getCoursesForInstructor,
 } from "../../backend/courseServices.js";
 
 import "./InstructorCourses.css";
@@ -61,6 +58,7 @@ function normalizeCourse(course, index) {
       course.studentCount ??
       course.student_count ??
       course.total_students ??
+      course.seats_taken ??
       0,
 
     assignments:
@@ -71,7 +69,7 @@ function normalizeCourse(course, index) {
 
     status:
       course.status ??
-      "Active",
+      (course.isArchived ? "Inactive" : "Active"),
 
     semester:
       course.semester ??
@@ -82,6 +80,25 @@ function normalizeCourse(course, index) {
       course.description ??
       "",
 
+    maxSeats:
+      course.max_seats ??
+      course.maxSeats ??
+      30,
+
+    seatsOpen:
+      course.seats_open ??
+      course.seatsOpen ??
+      0,
+
+    credits:
+      course.credits ??
+      3,
+
+    materialsUrl:
+      course.materials_url ??
+      course.materialsUrl ??
+      "",
+
     gradeCategories:
       course.gradeCategories ??
       course.grade_categories ??
@@ -89,8 +106,26 @@ function normalizeCourse(course, index) {
 
     color:
       course.color ??
-      courseColors[index % courseColors.length],
+      courseColors[
+        index % courseColors.length
+      ],
   };
+}
+
+function getCoursesFromResult(result) {
+  const data =
+    result?.data ??
+    result;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.courses)) {
+    return data.courses;
+  }
+
+  return [];
 }
 
 function InstructorCourses() {
@@ -127,6 +162,9 @@ function InstructorCourses() {
       title: "",
       description: "",
       semester: "",
+      maxSeats: 30,
+      credits: 3,
+      materialsUrl: "",
     });
 
   const [gradeCategories, setGradeCategories] =
@@ -159,8 +197,15 @@ function InstructorCourses() {
         return;
       }
 
+      /*
+       * Supports both the previous userServices
+       * response and Tori's refactored apiRequest
+       * response structure.
+       */
       const user =
-        userResult.user;
+        userResult.user ??
+        userResult.data?.user ??
+        userResult.data;
 
       const currentInstructorID =
         user?.user_id ??
@@ -181,7 +226,7 @@ function InstructorCourses() {
       );
 
       const courseResult =
-        await getCoursesWithInstructor(
+        await getCoursesForInstructor(
           currentInstructorID
         );
 
@@ -196,11 +241,9 @@ function InstructorCourses() {
       }
 
       const backendCourses =
-        Array.isArray(
-          courseResult.courses
-        )
-          ? courseResult.courses
-          : [];
+        getCoursesFromResult(
+          courseResult
+        );
 
       setCourses(
         backendCourses.map(
@@ -232,12 +275,12 @@ function InstructorCourses() {
       return courses.filter(
         (course) => {
           return (
-            course.code
+            String(course.code)
               .toLowerCase()
               .includes(
                 normalizedSearch
               ) ||
-            course.title
+            String(course.title)
               .toLowerCase()
               .includes(
                 normalizedSearch
@@ -334,6 +377,9 @@ function InstructorCourses() {
       title: "",
       description: "",
       semester: "",
+      maxSeats: 30,
+      credits: 3,
+      materialsUrl: "",
     });
 
     setGradeCategories([
@@ -360,7 +406,7 @@ function InstructorCourses() {
       }
 
       const result =
-        await getCoursesWithInstructor(
+        await getCoursesForInstructor(
           instructorID
         );
 
@@ -374,9 +420,9 @@ function InstructorCourses() {
       }
 
       const backendCourses =
-        Array.isArray(result.courses)
-          ? result.courses
-          : [];
+        getCoursesFromResult(
+          result
+        );
 
       setCourses(
         backendCourses.map(
@@ -402,6 +448,26 @@ function InstructorCourses() {
       ) {
         setFormError(
           "Please complete all required course fields."
+        );
+
+        return;
+      }
+
+      if (
+        Number(courseForm.maxSeats) <= 0
+      ) {
+        setFormError(
+          "Maximum seats must be greater than 0."
+        );
+
+        return;
+      }
+
+      if (
+        Number(courseForm.credits) <= 0
+      ) {
+        setFormError(
+          "Credits must be greater than 0."
         );
 
         return;
@@ -439,7 +505,11 @@ function InstructorCourses() {
         await createCourseWithTerm(
           courseForm.title.trim(),
           courseForm.semester,
-          instructorID ?? -1
+          instructorID,
+          Number(courseForm.maxSeats),
+          Number(courseForm.credits),
+          courseForm.materialsUrl.trim() ||
+            null
         );
 
       setIsCreating(false);
@@ -454,17 +524,6 @@ function InstructorCourses() {
 
         return;
       }
-
-      /*
-        The current backend service only saves:
-        - title
-        - term
-        - instructor ID
-
-        Course code, description, and grade
-        categories remain UI fields until the
-        backend service supports them.
-      */
 
       await reloadCourses();
 
@@ -668,6 +727,32 @@ function InstructorCourses() {
                         </div>
                       </div>
 
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          display: "flex",
+                          gap: "14px",
+                          flexWrap: "wrap",
+                          fontSize: "12px",
+                          color: "#64748b",
+                        }}
+                      >
+                        <span>
+                          {course.credits}{" "}
+                          credits
+                        </span>
+
+                        <span>
+                          {course.maxSeats}{" "}
+                          max seats
+                        </span>
+
+                        <span>
+                          {course.seatsOpen}{" "}
+                          seats open
+                        </span>
+                      </div>
+
                       <button
                         className="manage-button"
                         onClick={() =>
@@ -776,37 +861,98 @@ function InstructorCourses() {
                 </div>
               </div>
 
-              <div className="course-form-group">
-                <label htmlFor="semester">
-                  Semester *
-                </label>
+              <div className="course-form-grid">
+                <div className="course-form-group">
+                  <label htmlFor="semester">
+                    Semester *
+                  </label>
 
-                <select
-                  id="semester"
-                  name="semester"
-                  value={
-                    courseForm.semester
-                  }
-                  onChange={
-                    handleCourseFormChange
-                  }
-                >
-                  <option value="">
-                    Select semester
-                  </option>
+                  <select
+                    id="semester"
+                    name="semester"
+                    value={
+                      courseForm.semester
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  >
+                    <option value="">
+                      Select semester
+                    </option>
 
-                  <option value="Fall 2026">
-                    Fall 2026
-                  </option>
+                    <option value="Fall 2026">
+                      Fall 2026
+                    </option>
 
-                  <option value="Spring 2027">
-                    Spring 2027
-                  </option>
+                    <option value="Spring 2027">
+                      Spring 2027
+                    </option>
 
-                  <option value="Summer 2027">
-                    Summer 2027
-                  </option>
-                </select>
+                    <option value="Summer 2027">
+                      Summer 2027
+                    </option>
+                  </select>
+                </div>
+
+                <div className="course-form-group">
+                  <label htmlFor="maxSeats">
+                    Maximum Seats *
+                  </label>
+
+                  <input
+                    id="maxSeats"
+                    name="maxSeats"
+                    type="number"
+                    min="1"
+                    value={
+                      courseForm.maxSeats
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="course-form-grid">
+                <div className="course-form-group">
+                  <label htmlFor="credits">
+                    Credits *
+                  </label>
+
+                  <input
+                    id="credits"
+                    name="credits"
+                    type="number"
+                    min="1"
+                    value={
+                      courseForm.credits
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  />
+                </div>
+
+                <div className="course-form-group">
+                  <label htmlFor="materialsUrl">
+                    Materials URL
+                  </label>
+
+                  <input
+                    id="materialsUrl"
+                    name="materialsUrl"
+                    type="url"
+                    placeholder="https://..."
+                    value={
+                      courseForm.materialsUrl
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  />
+                </div>
               </div>
 
               <div className="course-form-group">
@@ -955,8 +1101,7 @@ function InstructorCourses() {
                   </span>
 
                   <strong>
-                    {totalWeight}% /
-                    100%
+                    {totalWeight}% / 100%
                   </strong>
                 </div>
 
@@ -968,12 +1113,14 @@ function InstructorCourses() {
                     fontSize: "12px",
                   }}
                 >
-                  Course code,
-                  description, and grade
-                  categories are not yet
-                  included in the current
-                  create-course backend
-                  service.
+                  Maximum seats, credits,
+                  and materials URL are
+                  connected to the current
+                  course service. Course
+                  code, description, and
+                  grade categories remain
+                  frontend-only until a
+                  service supports them.
                 </p>
               </section>
 

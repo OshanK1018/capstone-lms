@@ -38,7 +38,8 @@ function normalizeStudent(student, index) {
     student.last_name ??
     "";
 
-  const combinedName = `${firstName} ${lastName}`.trim();
+  const combinedName =
+    `${firstName} ${lastName}`.trim();
 
   return {
     ...student,
@@ -60,8 +61,7 @@ function normalizeStudent(student, index) {
       student.name ??
       student.fullName ??
       student.full_name ??
-      combinedName ??
-      "Student",
+      (combinedName || "Student"),
 
     email:
       student.email ??
@@ -73,6 +73,30 @@ function normalizeStudent(student, index) {
       student.status ??
       "Enrolled",
   };
+}
+
+function getStudentsFromResult(result) {
+  const data =
+    result?.data ??
+    result;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.student_list)
+  ) {
+    return data.student_list;
+  }
+
+  if (
+    Array.isArray(data?.students)
+  ) {
+    return data.students;
+  }
+
+  return [];
 }
 
 function InstructorManageCourse() {
@@ -97,6 +121,10 @@ function InstructorManageCourse() {
       status: "Active",
       students: 0,
       assignments: 0,
+      maxSeats: 30,
+      seatsOpen: 0,
+      credits: 3,
+      materialsUrl: "",
       gradeCategories: [],
     };
   }, [selectedCourse, courseId]);
@@ -111,16 +139,30 @@ function InstructorManageCourse() {
       description:
         course.description || "",
       semester:
-        course.semester || "",
+        course.semester ||
+        course.term ||
+        "",
       status:
         course.status || "Active",
+      maxSeats:
+        course.maxSeats ??
+        course.max_seats ??
+        30,
+      credits:
+        course.credits ?? 3,
+      materialsUrl:
+        course.materialsUrl ??
+        course.materials_url ??
+        "",
     });
 
   const [
     gradeCategories,
     setGradeCategories,
   ] = useState(
-    course.gradeCategories || []
+    course.gradeCategories ||
+      course.grade_categories ||
+      []
   );
 
   const [students, setStudents] =
@@ -158,19 +200,24 @@ function InstructorManageCourse() {
       if (!result.success) {
         setRosterError(
           result.error ||
-            result.message ||
             "Unable to load course roster."
         );
 
         return;
       }
 
+      /*
+       * Tori's refactored apiRequest() returns:
+       *
+       * {
+       *   success: true,
+       *   data: backendResponse
+       * }
+       */
       const backendStudents =
-        Array.isArray(
-          result.student_list
-        )
-          ? result.student_list
-          : [];
+        getStudentsFromResult(
+          result
+        );
 
       setStudents(
         backendStudents.map(
@@ -240,7 +287,6 @@ function InstructorManageCourse() {
     setGradeCategories(
       (previousCategories) => [
         ...previousCategories,
-
         {
           id: Date.now(),
           name: "",
@@ -266,14 +312,24 @@ function InstructorManageCourse() {
     setSaveMessage("");
   };
 
+  /*
+   * No instructor-side remove-student
+   * service exists in the service files
+   * we have reviewed yet.
+   */
   const handleRemoveStudent = (
     student
   ) => {
     setRosterError(
-      `Removing ${student.name} is not connected to the backend yet.`
+      `Removing ${student.name} is not connected to a service function yet.`
     );
   };
 
+  /*
+   * Course editing/grading setup remains
+   * frontend-only until corresponding
+   * update services are available.
+   */
   const handleSaveCourse = (
     event
   ) => {
@@ -551,6 +607,65 @@ function InstructorManageCourse() {
                 </div>
               </div>
 
+              <div className="manage-form-grid">
+                <div className="manage-form-group">
+                  <label htmlFor="manageMaxSeats">
+                    Maximum Seats
+                  </label>
+
+                  <input
+                    id="manageMaxSeats"
+                    name="maxSeats"
+                    type="number"
+                    min="1"
+                    value={
+                      courseForm.maxSeats
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  />
+                </div>
+
+                <div className="manage-form-group">
+                  <label htmlFor="manageCredits">
+                    Credits
+                  </label>
+
+                  <input
+                    id="manageCredits"
+                    name="credits"
+                    type="number"
+                    min="1"
+                    value={
+                      courseForm.credits
+                    }
+                    onChange={
+                      handleCourseFormChange
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="manage-form-group">
+                <label htmlFor="manageMaterialsUrl">
+                  Materials URL
+                </label>
+
+                <input
+                  id="manageMaterialsUrl"
+                  name="materialsUrl"
+                  type="url"
+                  placeholder="https://..."
+                  value={
+                    courseForm.materialsUrl
+                  }
+                  onChange={
+                    handleCourseFormChange
+                  }
+                />
+              </div>
+
               <div className="manage-form-group">
                 <label htmlFor="manageDescription">
                   Course Description
@@ -685,9 +800,7 @@ function InstructorManageCourse() {
                               }
                             >
                               <Trash2
-                                size={
-                                  16
-                                }
+                                size={16}
                               />
 
                               Remove
