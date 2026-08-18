@@ -28,7 +28,7 @@ import {
 } from "../../backend/courseServices.js";
 
 import {
-  assignCourseGrade,
+  updateCourseGrade,
 } from "../../backend/gradingServices.js";
 
 import "./InstructorGradebook.css";
@@ -650,14 +650,15 @@ function InstructorGradebook() {
       setSaveMessage("");
 
       const result =
-        await assignCourseGrade(
+        await updateCourseGrade(
           Number(
             selectedStudent.backendStudentId
           ),
           Number(
             selectedStudent.courseId
           ),
-          letterGrade
+          letterGrade,
+          overallGrade
         );
 
       setIsSaving(false);
