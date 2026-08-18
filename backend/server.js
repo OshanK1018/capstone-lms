@@ -1027,7 +1027,7 @@ app.get('/api/courses/instructor/:instructorID',
 
             const [courses] = await connectionPool.query(
                 `
-                 SELECT Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
+                 SELECT Courses.course_id, Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
                  (SELECT Users.name FROM Users WHERE Users.user_id = Courses.instructor_id AND isArchived = 0) AS instructor_name,
                  (SELECT COUNT(DISTINCT student_id) FROM Enrollments WHERE course_id = Courses.course_id AND isArchived = 0) AS student_count,
                  (SELECT COUNT(DISTINCT assignment_id) FROM Assignments WHERE course_id = Courses.course_id AND isArchived = 0) AS total_assignments,
@@ -1096,7 +1096,7 @@ app.get('/api/courses/student/:studentID',
             }
 
             const [coursesStudentIsEnrolledIn] = await connectionPool.query(
-                ` SELECT Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
+                ` SELECT Courses.course_id, Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
                  (SELECT Users.name FROM Users WHERE Users.user_id = Courses.instructor_id AND isArchived = 0) AS instructor_name,
                  (SELECT COUNT(DISTINCT student_id) FROM Enrollments WHERE course_id = Courses.course_id AND isArchived = 0) AS student_count,
                  (SELECT COUNT(DISTINCT assignment_id) FROM Assignments WHERE course_id = Courses.course_id AND isArchived = 0) AS total_assignments,
@@ -1153,7 +1153,7 @@ app.get('/api/courses/:courseID',
                            WHERE Courses.course_id = ? AND Courses.isArchived = 0`
             }
             else {
-                sqlQuery = `SELECT Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
+                sqlQuery = `SELECT Courses.course_id, Courses.title, Courses.start_date, Courses.end_date, Courses.credits, Courses.materials_url, Courses.max_seats, Courses.seats_open,
                            (SELECT Users.name FROM Users WHERE Users.user_id = Courses.instructor_id AND isArchived = 0) AS instructor_name,
                            (SELECT COUNT(DISTINCT student_id) FROM Enrollments WHERE course_id = Courses.course_id AND isArchived = 0) AS student_count,
                            (SELECT COUNT(DISTINCT assignment_id) FROM Assignments WHERE course_id = Courses.course_id AND isArchived = 0) AS total_assignments,
@@ -1267,7 +1267,7 @@ app.get('/api/courses/assignments/:courseID',
                 sqlQuery = `SELECT * FROM Assignments where course_id = ?`;
             }
             else { 
-                sqlQuery = `SELECT title, due_date, max_points, assignment_link
+                sqlQuery = `SELECT assignment_id, title, due_date, max_points, assignment_link
                            FROM Assignments where course_id = ?`;
             }
             
@@ -1333,7 +1333,7 @@ app.get('/api/courses/quizzes/:courseID',
                 sqlQuery = `SELECT * FROM Quizzes where course_id = ?`;
             }
             else { 
-                sqlQuery =`SELECT Courses.title as course_name, Quizzes.title, Quizzes.due_date 
+                sqlQuery =`SELECT Quizzes.quiz_id, Courses.course_id, Courses.title as course_name, Quizzes.title, Quizzes.due_date 
                            FROM Quizzes LEFT JOIN Courses ON Courses.course_id = Quizzes.course_id 
                            WHERE Quizzes.course_id = ?`;
             }
@@ -1400,7 +1400,7 @@ app.get('/api/courses/announcements/:courseID',
                 sqlQuery = `SELECT * FROM Announcements WHERE course_id = ?`;
             }
             else { 
-                sqlQuery = `SELECT Announcements.title, Announcements.message, Announcements.date_posted, Courses.title AS course_title 
+                sqlQuery = `SELECT Announcement.announcement_id, Announcements.title, Announcements.message, Announcements.date_posted, Courses.title AS course_title 
                             FROM Announcements 
                             LEFT JOIN Courses ON Courses.course_id = Announcements.course_id
                             WHERE Announcements.course_id = ?`;
@@ -1458,7 +1458,7 @@ app.get('/api/students/quiz_attempts/:studentID',
                 sqlQuery = `SELECT * FROM Quiz_Attempts WHERE student_id = ?`
             }
             else {
-                sqlQuery = `SELECT Quizzes.title AS quiz_title, Courses.title AS course_title,
+                sqlQuery = `SELECT Quiz_Attempts.attempt_id, Quizzes.title AS quiz_title, Courses.title AS course_title,
                             Quiz_Attempts.score, Quiz_Attempts.attempt_date
                             FROM Quiz_Attempts
                             LEFT JOIN Quizzes ON Quizzes.quiz_id = Quiz_Attempts.quiz_id
