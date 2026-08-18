@@ -26,7 +26,7 @@ import InstructorSidebar from "./components/InstructorSidebar";
 
 import {
   getCurrentUser,
-} from "../../backend/userServices.js";
+} from "../../backend/authServices.js";
 
 import {
   getCoursesForInstructor,
@@ -726,7 +726,7 @@ function InstructorAssignments() {
             assignmentForm.courseId
           ),
           assignmentForm.title.trim(),
-          assignmentForm.dueDate,
+          `${assignmentForm.dueDate} 23:59:59`,
           Number(
             assignmentForm.points
           ),

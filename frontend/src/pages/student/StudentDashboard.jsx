@@ -1,13 +1,18 @@
 import "./StudentDashboard.css";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BookMarked, SquarePen, Brain, ChevronRight } from "lucide-react";
+import { getCurrentUser } from "../../../../backend/authServices.js";
+import { getCoursesForStudent } from "../../../../backend/courseServices.js";
+import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
+import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
 
 // Temporary frontend data until backend API integration is connected
 import {
     studentProfile,
-    enrolledCourses,
-    upcomingAssignments,
-    upcomingQuizzes,
+    //enrolledCourses,
+    //upcomingAssignments,
+    //upcomingQuizzes,
     announcements,
     recentGrades,
 } from "../../data/studentData";
@@ -47,13 +52,118 @@ function EmptyState({ title, message, actionText, actionLink }) {
     );
 }
 
+// Loads the logged-in student and their real enrolled courses from the backend
+// Courses are temporarily saved in localStorage so the existing course pages can use them
 function StudentDashboard() {
+    const [currentStudent, setCurrentStudent] = useState(null);
+    const [studentCourses, setStudentCourses] = useState([]);
+    const [dashboardAssignments, setDashboardAssignments] = useState([]);
+    const [dashboardQuizzes, setDashboardQuizzes] = useState([]);
+    const [studentError, setStudentError] = useState("");
+
+    useEffect(() => {
+        async function loadStudentDashboard() {
+            const userResult = await getCurrentUser();
+
+            if (!userResult.success) {
+                setStudentError(
+                    userResult.error ||
+                    "Unable to load student information"
+                );
+                return;
+            }
+
+            const user = userResult.data?.user;
+
+            if (user?.role?.toLowerCase() !== "student") {
+                setStudentError(
+                    "The logged-in account is not a student account"
+                );
+                return;
+            }
+
+            setCurrentStudent(user);
+
+            const studentId = user.user_id ?? user.id;
+            const coursesResult =
+                await getCoursesForStudent(studentId);
+
+            if (!coursesResult.success) {
+                setStudentError(
+                    coursesResult.error ||
+                    "Unable to load enrolled courses"
+                );
+                return;
+            }
+
+            const courses = (
+                coursesResult.data?.courses || []
+            ).map((course) => ({
+                id: course.course_id,
+                code: `COURSE ${course.course_id}`,
+                title: course.title,
+                instructor:
+                    course.instructor_name || "Instructor",
+                credits: Number(course.credits || 0),
+                seatsOpen: Number(course.seats_open || 0),
+                materialsUrl: course.materials_url,
+                startDate: course.start_date,
+                endDate: course.end_date,
+            }));
+
+            setStudentCourses(courses);
+
+            const [assignmentResults, quizResults] = await Promise.all([
+                Promise.all(
+                    courses.map(async (course) => {
+                        const result = await getAssignmentsForCourse(course.id);
+
+                        return (result.data?.assignments || []).map((assignment) => ({
+                            id: assignment.assignment_id,
+                            courseId: course.id,
+                            courseCode: course.code,
+                            title: assignment.title,
+                            dueDate: assignment.due_date?.slice(0, 10),
+                        }));
+                    })
+                ),
+                Promise.all(
+                    courses.map(async (course) => {
+                        const result = await getQuizzesForCourse(course.id);
+
+                        return (result.data?.quizzes || []).map((quiz) => ({
+                            id: quiz.quiz_id,
+                            courseId: course.id,
+                            courseCode: course.code,
+                            title: quiz.title,
+                            dueDate: quiz.due_date?.slice(0, 10),
+                        }));
+                    })
+                ),
+            ]);
+
+            setDashboardAssignments(assignmentResults.flat());
+            setDashboardQuizzes(quizResults.flat());
+            // Temporarily lets the other student pages use these real courses.
+            localStorage.setItem(
+                "studentCourses",
+                JSON.stringify(courses)
+            );
+
+            window.dispatchEvent(
+                new Event("studentCoursesUpdated")
+            );
+        }
+
+        loadStudentDashboard();
+    }, []);
+
     // Temporary browser storage
     // Replace with the logged in student's enrolled courses from the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
+    // const savedCourses = localStorage.getItem("studentCourses");
+    // const studentCourses = savedCourses
+    //     ? JSON.parse(savedCourses)
+    //     : enrolledCourses;
 
     // Temporary browser storage
     // Replace these reads with GET requests to the backend API
@@ -65,16 +175,15 @@ function StudentDashboard() {
         localStorage.getItem(quizAttemptsKey) || "[]"
     );
 
-    // Integration point: dashboard data will later be fetched from the backend API for the logged in student's enrolled courses
     const studentCourseCodes = studentCourses.map((course) => course.code);
 
-    const dashboardAssignments = upcomingAssignments.filter((assignment) =>
-        studentCourseCodes.includes(assignment.courseCode)
-    );
+    // const dashboardAssignments = upcomingAssignments.filter((assignment) =>
+    //     studentCourseCodes.includes(assignment.courseCode)
+    // );
 
-    const dashboardQuizzes = upcomingQuizzes.filter((quiz) =>
-        studentCourseCodes.includes(quiz.courseCode)
-    );
+    // const dashboardQuizzes = upcomingQuizzes.filter((quiz) =>
+    //     studentCourseCodes.includes(quiz.courseCode)
+    // );
 
     const dashboardAnnouncements = announcements.filter((announcement) =>
         studentCourseCodes.includes(announcement.courseCode)
@@ -136,6 +245,12 @@ function StudentDashboard() {
             })),
     ]);
 
+    const studentName = currentStudent?.name || "Student";
+    const studentId =
+        currentStudent?.user_id ??
+        currentStudent?.id ??
+        (studentError ? "Unavailable" : "Loading...");
+
     return (
         <main className="dashboard">
             <section className="dashboard__header">
@@ -143,12 +258,18 @@ function StudentDashboard() {
                     <p className="dashboard__label">STUDENT PORTAL</p>
 
                     <h1 className="dashboard__title">
-                        Welcome back, {studentProfile.name}
+                        Welcome back, {studentName}
                     </h1>
-                    
+
                     <p className="dashboard__description">
-                        ID: {studentProfile.studentId}
+                        ID: {studentId}
                     </p>
+
+                    {studentError && (
+                        <p className="dashboard__description">
+                            {studentError}
+                        </p>
+                    )}
                 </div>
 
                 <div className="dashboard__term">
@@ -238,30 +359,28 @@ function StudentDashboard() {
                         <h2>To Do</h2>
 
                         {dashboardToDo.length > 0 ? (
-                            dashboardToDo
-                                .slice(0, 4)
-                                .map((workItem) => (
-                                    <Link
-                                        to={
-                                            workItem.type === "Assignment"
-                                                ? `/student/course/${workItem.courseId}/assignments/${workItem.id}`
-                                                : `/student/course/${workItem.courseId}/quizzes/${workItem.id}`
-                                        }
-                                        className="assignment-item"
-                                        key={`${workItem.type}-${workItem.id}`}
-                                    >
-                                        <div>
-                                            <h3>{workItem.title}</h3>
-                                            <p>
-                                                {workItem.courseCode} · {workItem.type}
-                                            </p>
-                                        </div>
+                            dashboardToDo.slice(0, 4).map((workItem) => (
+                                <Link
+                                    to={
+                                        workItem.type === "Assignment"
+                                            ? `/student/course/${workItem.courseId}/assignments/${workItem.id}`
+                                            : `/student/course/${workItem.courseId}/quizzes/${workItem.id}`
+                                    }
+                                    className="assignment-item"
+                                    key={`${workItem.type}-${workItem.id}`}
+                                >
+                                    <div>
+                                        <h3>{workItem.title}</h3>
+                                        <p>
+                                            {workItem.courseCode} · {workItem.type}
+                                        </p>
+                                    </div>
 
-                                        <span className="assignment-item__due">
-                                            Due {formatDisplayDate(workItem.dueDate)}
-                                        </span>
-                                    </Link>
-                                ))
+                                    <span className="assignment-item__due">
+                                        Due {formatDisplayDate(workItem.dueDate)}
+                                    </span>
+                                </Link>
+                            ))
                         ) : (
                             <EmptyState
                                 title="Nothing to do"
@@ -302,21 +421,16 @@ function StudentDashboard() {
                         <h2>Recent Grades</h2>
 
                         {dashboardGrades.length > 0 ? (
-                            dashboardGrades
-                                .slice(0, 4)
-                                .map((grade) => (
-                                    <div
-                                        className="grade-item"
-                                        key={grade.id}
-                                    >
-                                        <div>
-                                            <h3>{grade.title}</h3>
-                                            <p>{grade.courseCode}</p>
-                                        </div>
-
-                                        <strong>{grade.score}</strong>
+                            dashboardGrades.slice(0, 4).map((grade) => (
+                                <div className="grade-item" key={grade.id}>
+                                    <div>
+                                        <h3>{grade.title}</h3>
+                                        <p>{grade.courseCode}</p>
                                     </div>
-                                ))
+
+                                    <strong>{grade.score}</strong>
+                                </div>
+                            ))
                         ) : (
                             <EmptyState
                                 title="No grades yet"

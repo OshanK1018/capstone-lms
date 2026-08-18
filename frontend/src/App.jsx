@@ -8,7 +8,7 @@ import {
 import Login from "./pages/student/Login";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import CourseEnrollment from "./pages/student/CourseEnrollment";
-import CourseDetail from "./pages/student/CourseDetail";
+import CourseHome from "./pages/student/CourseHome";
 import StudentLayout from "./layouts/StudentLayout";
 import CourseLayout from "./layouts/CourseLayout";
 import StudentMaterials from "./pages/student/StudentMaterials";
@@ -40,7 +40,7 @@ function App() {
         <Route path="enroll" element={<CourseEnrollment />} />
 
         <Route path="course/:courseId" element={<CourseLayout />}>
-          <Route index element={<CourseDetail />} />
+          <Route index element={<CourseHome />} />
           <Route path="materials" element={<StudentMaterials />} />
           <Route path="assignments" element={<StudentAssignments />} />
           <Route path="assignments/:assignmentId" element={<StudentAssignmentSubmission />} />
