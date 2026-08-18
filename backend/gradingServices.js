@@ -10,6 +10,7 @@ export async function assignCourseGrade(studentId, courseId, letterGrade, score 
     body,
   });
 }
+
 export async function updateCourseGrade(studentId, courseId, letterGrade, score = null) {
   const body = { letter_grade: letterGrade };
   if (score !== null && score !== undefined) {
