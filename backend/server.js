@@ -727,7 +727,7 @@ app.post('/api/Quiz_Attempts',
             return res.status(400).json({ error: 'No valid quiz ID given' });
         if (!studentIDasNum || studentIDasNum < 0 || !(Number.isInteger(studentIDasNum)))
             return res.status(400).json({ error: 'No valid quiz ID given' });
-        if (scoreAsNum < 0)
+        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null)
             return res.status(400).json({ error: 'No valid score given' });
         
         try {
@@ -783,8 +783,7 @@ app.post('/api/Quiz_Questions',
         if (!quizIDasNum || quizIDasNum < 0 || !(Number.isInteger(quizIDasNum)))
             return res.status(400).json({ error: 'No valid quiz ID given' });
         if (!question_text) return res.status(400).json({ error: 'No question text given' });
-        if (scoreAsNum && scoreAsNum < 0) return res.status(400).json({ error: 'Score must be greater than 0' });
-        if (!scoreAsNum) scoreAsNum = null;
+        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null) scoreAsNum = null;
 
         const currentUserID = req.user.user_id;
         const currentUserRole = req.user.role;
@@ -895,21 +894,29 @@ app.post('/api/Submissions',
 app.post('/api/Course_Grades',
     authenticateToken,
     async (req, res) => {
-        let { student_id, course_id, letter_grade } = req.body;
+        let { student_id, course_id, letter_grade, score } = req.body;
         const studentIDasNum = Number(student_id);
         const courseIDasNum = Number(course_id);
+        const scoreAsNum = Number(score);
         letter_grade = letter_grade?.trim().toUpperCase();
-
+        
         if (!studentIDasNum || studentIDasNum < 0 || !(Number.isInteger(studentIDasNum)))
-            return res.status(400).json({ error: 'No valid quiz ID given' });
+            return res.status(400).json({ error: 'No valid student ID given' });
         if (!courseIDasNum || courseIDasNum < 0 || !(Number.isInteger(courseIDasNum)))
-            return res.status(400).json({ error: "No valid course ID given to associate this quiz with" }); 
+            return res.status(400).json({ error: "No valid course ID given to associate this grade with" }); 
         if (letter_grade !== 'A' &&
             letter_grade !== 'B' &&
             letter_grade !== 'C' &&
             letter_grade !== 'D' &&
             letter_grade !== 'F')
             return res.status(403).json({ error: "No valid letter grade given" });
+        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null) {
+            if (letter_grade === 'A') score = 95;
+            if (letter_grade === 'B') score = 85;
+            if (letter_grade === 'C') score = 75;
+            if (letter_grade === 'D') score = 65;
+            if (letter_grade === 'F') score = 55;
+        }
             
 
         try {
@@ -926,7 +933,15 @@ app.post('/api/Course_Grades',
             );
             if (existingCourse.length === 0) 
                 return res.status(404).json({ error: `Course with ID ${courseIDasNum} not found` });
-        
+            
+            const [existingEnrollment] = await connection.query(
+                `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ? AND isArchived = 0`,
+                [courseIDasNum, studentIDasNum]
+            );
+            if (existingEnrollment.length === 0) {
+                return res.status(404).json({ error: `Student is not enrolled into course` });
+            }
+
             const [existingGrade] = await connectionPool.query(
                 `SELECT student_id, course_id FROM Course_Grades
                 WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
@@ -1214,7 +1229,10 @@ app.get('/api/Quizzes/:quizID',
 // get quiz_attempt by ID
 
 
-// get quiz_question by ID
+// get quiz_questions by quiz ID 
+app.get('/api/Quizzes/quiz_questions/:quizID',
+    
+);
 
 
 // get course grades for student by student ID
@@ -1556,6 +1574,108 @@ app.patch('/api/Courses/:courseID/remove',
         let { isArchived } = req.body;
     }
 ); 
+
+// update student grade
+app.patch('/api/Course_Grades/:studentID/:courseID/update',
+    authenticateToken,
+    async (req, res) => {
+        const studentIDasNum = Number(req.params.studentID);
+        const courseIDasNum = Number(req.params.courseID);
+
+        let { letter_grade, score } = req.body;
+        const scoreAsNum = Number(score);
+        letter_grade = letter_grade?.trim().toUpperCase();
+
+        const currentUserID = req.user.user_id;
+        const currentUserRole = req.user.role;
+
+        if (currentUserRole === 'student') {
+            return res.status(403).json({ error: `lol study harder bro` });
+        }
+
+        if (!studentIDasNum) return res.status(400).json({ error: `No valid student ID given` });
+        if (!courseIDasNum) return res.status(400).json({ error: `No valid course ID given` });
+        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null) return res.status(400).json({ error: `Invalid score given` });
+        if (letter_grade !== 'A' &&
+            letter_grade !== 'B' &&
+            letter_grade !== 'C' &&
+            letter_grade !== 'D' &&
+            letter_grade !== 'F')
+            return res.status(403).json({ error: "No valid letter grade given" });
+            
+        const connection = await connectionPool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+
+            const [existingStudent] = await connection.query(
+                `SELECT user_id FROM Users WHERE user_id = ? AND isArchived = 0 AND role = 'student'`,
+                [studentIDasNum]
+            );
+            if (existingStudent.length === 0)
+                return res.status(404).json({ error: `Student with ID ${studentIDasNum} not found` });
+
+            const [existingCourse] = await connection.query(
+                `SELECT course_id, instructor_id FROM Courses WHERE course_id = ? AND isArchived = 0`,
+                [courseIDasNum]
+            );
+            if (existingCourse.length === 0)
+                return res.status(404).json({ error: `Course with ID ${courseIDasNum} not found`  });
+
+            if (currentUserRole !== 'admin') {
+                if (existingCourse[0].instructor_id !== currentUserID)
+                    return res.status(403).json({ error: `You cannot update a course that is not your own`});
+            }
+
+            const [existingEnrollment] = await connection.query(
+                `SELECT enrollment_id FROM Enrollments WHERE course_id = ? AND student_id = ? AND isArchived = 0`,
+                [courseIDasNum, studentIDasNum]
+            );
+            if (existingEnrollment.length === 0) {
+                return res.status(404).json({ error: `Student is not enrolled into course` });
+            }
+
+            const [existingGrade] = await connection.query(
+                `SELECT grade_id FROM Course_Grades WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                [studentIDasNum, courseIDasNum]
+            );
+            if (existingGrade.length === 0) {
+                return res.status(404).json({ error: `Grade for student doesn't exist, there is nothing to update. Please use a POST request to create one.` })
+            }
+            const gradeID = Number(existingGrade[0].grade_id);
+
+            await connection.query(
+                `UPDATE Course_Grades SET letter_grade = ?, score = ? WHERE course_id = ? AND student_id = ?`,
+                [letter_grade, scoreAsNum, courseIDasNum, studentIDasNum]
+            );
+            
+             const [updatedGrade] = await connection.query(
+                `SELECT grade_id, student_id, course_id, letter_grade, score, isArchived
+                 FROM Course_Grades
+                 WHERE student_id = ? AND course_id = ? AND isArchived = 0`,
+                [studentIDasNum, courseIDasNum]
+            );
+
+            await connection.commit();
+
+            return res.status(200).json(
+                {
+                    success: true,
+                    message: `Grade updated successfully`,
+                    updated_grade: updatedGrade[0]
+                }
+            );
+        }
+        catch (error) {
+            await connection.rollback();
+            console.log('Could not update grade', error);
+            return res.status(500).json({ error: `Internal server error` });
+        }    
+        finally {
+            await connection.release();
+        }
+    }
+);
 
 app.listen(port,
     () => {
