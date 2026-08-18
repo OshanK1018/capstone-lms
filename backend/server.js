@@ -1595,14 +1595,20 @@ app.patch('/api/Course_Grades/:studentID/:courseID/update',
 
         if (!studentIDasNum) return res.status(400).json({ error: `No valid student ID given` });
         if (!courseIDasNum) return res.status(400).json({ error: `No valid course ID given` });
-        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null) return res.status(400).json({ error: `Invalid score given` });
         if (letter_grade !== 'A' &&
             letter_grade !== 'B' &&
             letter_grade !== 'C' &&
             letter_grade !== 'D' &&
             letter_grade !== 'F')
             return res.status(403).json({ error: "No valid letter grade given" });
-            
+        if (scoreAsNum < 0 || scoreAsNum === undefined || scoreAsNum === null) {
+            if (letter_grade === 'A') score = 95;
+            if (letter_grade === 'B') score = 85;
+            if (letter_grade === 'C') score = 75;
+            if (letter_grade === 'D') score = 65;
+            if (letter_grade === 'F') score = 55;
+        }
+         
         const connection = await connectionPool.getConnection();
         
         try {
