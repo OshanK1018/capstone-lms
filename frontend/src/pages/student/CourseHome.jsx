@@ -1,11 +1,12 @@
 import "./CourseHome.css";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
+import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
 
-// Temporary frontend data until backend API integration is connected
+// Announcements remain temporary until their backend route is fixed
 import {
     enrolledCourses,
-    upcomingAssignments,
-    upcomingQuizzes,
     announcements,
 } from "../../data/studentData";
 
@@ -24,62 +25,107 @@ function formatDisplayDate(dateText) {
 }
 
 function sortByDueDate(items) {
-    return [...items].sort((firstItem, secondItem) => {
-        return getDate(firstItem.dueDate) - getDate(secondItem.dueDate);
-    });
+    return [...items].sort(
+        (first, second) =>
+            getDate(first.dueDate) - getDate(second.dueDate)
+    );
 }
 
 function sortByNewestDate(items) {
-    return [...items].sort((firstItem, secondItem) => {
-        return getDate(secondItem.date) - getDate(firstItem.date);
-    });
+    return [...items].sort(
+        (first, second) =>
+            getDate(second.date) - getDate(first.date)
+    );
 }
 
 function CourseHome() {
     const { courseId } = useParams();
     const navigate = useNavigate();
 
-    // Temporary browser storage
-    // Replace this with the student's enrolled courses from the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
+    const [courseAssignments, setCourseAssignments] = useState([]);
+    const [courseQuizzes, setCourseQuizzes] = useState([]);
+    const [workLoading, setWorkLoading] = useState(true);
+    const [workError, setWorkError] = useState("");
+
+    useEffect(() => {
+        async function loadCourseWork() {
+            setWorkLoading(true);
+            setWorkError("");
+
+            const [assignmentsResult, quizzesResult] =
+                await Promise.all([
+                    getAssignmentsForCourse(courseId),
+                    getQuizzesForCourse(courseId),
+                ]);
+
+            if (
+                !assignmentsResult.success ||
+                !quizzesResult.success
+            ) {
+                setWorkError(
+                    assignmentsResult.error ||
+                    quizzesResult.error ||
+                    "Unable to load course work"
+                );
+                setWorkLoading(false);
+                return;
+            }
+
+            const assignments = (
+                assignmentsResult.data?.assignments || []
+            ).map((assignment) => ({
+                id:
+                    assignment.assignment_id ??
+                    assignment.id,
+                courseId:
+                    assignment.course_id ??
+                    Number(courseId),
+                title: assignment.title,
+                dueDate:
+                    assignment.due_date?.slice(0, 10),
+                assignmentLink:
+                    assignment.assignment_link,
+                allowResubmission: Boolean(
+                    assignment.allow_resubmission
+                ),
+            }));
+
+            const quizzes = (
+                quizzesResult.data?.quizzes || []
+            ).map((quiz) => ({
+                id: quiz.quiz_id ?? quiz.id,
+                courseId:
+                    quiz.course_id ??
+                    Number(courseId),
+                title: quiz.title,
+                dueDate: quiz.due_date?.slice(0, 10),
+            }));
+
+            setCourseAssignments(assignments);
+            setCourseQuizzes(quizzes);
+            setWorkLoading(false);
+        }
+
+        loadCourseWork();
+    }, [courseId]);
+
+    const savedCourses =
+        localStorage.getItem("studentCourses");
 
     const studentCourses = savedCourses
         ? JSON.parse(savedCourses)
         : enrolledCourses;
 
-    // Temporary browser storage
-    // Replace these reads with GET requests to the backend API
+    const selectedCourse = studentCourses.find(
+        (course) => String(course.id) === courseId
+    );
+
     const assignmentSubmissions = JSON.parse(
         localStorage.getItem(assignmentSubmissionsKey) || "[]"
     );
 
     const quizAttempts = JSON.parse(
         localStorage.getItem(quizAttemptsKey) || "[]"
-    );
-
-    // Integration point: fetch the logged in student's enrolled courses from the backend API
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
-    );
-
-    if (!selectedCourse) {
-        return (
-            <main className="course-home">
-                <section className="course-home__card">
-                    <h1>Course Not Found</h1>
-                    <p>This course could not be found.</p>
-                </section>
-            </main>
-        );
-    }
-
-    // Integration point: these will later be returned by course specific backend API calls
-    const courseAssignments = upcomingAssignments.filter(
-        (assignment) => assignment.courseCode === selectedCourse.code
-    );
-
-    const courseQuizzes = upcomingQuizzes.filter(
-        (quiz) => quiz.courseCode === selectedCourse.code
     );
 
     function getAssignmentSubmission(assignmentId) {
@@ -114,8 +160,10 @@ function CourseHome() {
             return {
                 ...quiz,
                 type: "Quiz",
-                completed: attempt?.status === "Completed",
-                inProgress: attempt?.status === "In Progress",
+                completed:
+                    attempt?.status === "Completed",
+                inProgress:
+                    attempt?.status === "In Progress",
             };
         }),
     ];
@@ -124,42 +172,51 @@ function CourseHome() {
     today.setHours(0, 0, 0, 0);
 
     const toDoWork = sortByDueDate(
-        allCourseWork.filter((workItem) => {
-            return (
+        allCourseWork.filter(
+            (workItem) =>
                 getDate(workItem.dueDate) >= today &&
                 !workItem.completed
-            );
-        })
-    );
-
-    const overdueWork = sortByDueDate(
-        allCourseWork.filter((workItem) => {
-            return (
-                getDate(workItem.dueDate) < today &&
-                !workItem.completed
-            );
-        })
-    );
-
-    const courseAnnouncements = sortByNewestDate(
-        announcements.filter(
-            (announcement) =>
-                announcement.courseCode === selectedCourse.code
         )
     );
 
-    function handleOpenWork(workItem) {
-        if (workItem.type === "Assignment") {
-            navigate(
-                `/student/course/${courseId}/assignments/${workItem.id}`
-            );
-        }
+    const overdueWork = sortByDueDate(
+        allCourseWork.filter(
+            (workItem) =>
+                getDate(workItem.dueDate) < today &&
+                !workItem.completed
+        )
+    );
 
-        if (workItem.type === "Quiz") {
-            navigate(
-                `/student/course/${courseId}/quizzes/${workItem.id}`
-            );
-        }
+    const courseAnnouncements = selectedCourse
+        ? sortByNewestDate(
+              announcements.filter(
+                  (announcement) =>
+                      announcement.courseCode ===
+                      selectedCourse.code
+              )
+          )
+        : [];
+
+    function handleOpenWork(workItem) {
+        const page =
+            workItem.type === "Assignment"
+                ? "assignments"
+                : "quizzes";
+
+        navigate(
+            `/student/course/${courseId}/${page}/${workItem.id}`
+        );
+    }
+
+    if (!selectedCourse) {
+        return (
+            <main className="course-home">
+                <section className="course-home__card">
+                    <h1>Course Not Found</h1>
+                    <p>This course could not be found.</p>
+                </section>
+            </main>
+        );
     }
 
     return (
@@ -169,25 +226,33 @@ function CourseHome() {
                     <h2>Announcements</h2>
 
                     {courseAnnouncements.length > 0 ? (
-                        courseAnnouncements.map((announcement) => (
-                            <div
-                                className="course-home-item"
-                                key={announcement.id}
-                            >
-                                <span>
-                                    {formatDisplayDate(
-                                        announcement.date
-                                    )}
-                                </span>
+                        courseAnnouncements.map(
+                            (announcement) => (
+                                <div
+                                    className="course-home-item"
+                                    key={announcement.id}
+                                >
+                                    <span>
+                                        {formatDisplayDate(
+                                            announcement.date
+                                        )}
+                                    </span>
 
-                                <h3>{announcement.courseCode}</h3>
+                                    <h3>
+                                        {
+                                            announcement.courseCode
+                                        }
+                                    </h3>
 
-                                <p>{announcement.message}</p>
-                            </div>
-                        ))
+                                    <p>
+                                        {announcement.message}
+                                    </p>
+                                </div>
+                            )
+                        )
                     ) : (
                         <p className="course-home__empty">
-                            No announcements posted for this course.
+                            No announcements posted for this course
                         </p>
                     )}
                 </section>
@@ -196,11 +261,20 @@ function CourseHome() {
                     <section className="course-home__card">
                         <h2>To Do</h2>
 
-                        {toDoWork.length > 0 ? (
+                        {workLoading ? (
+                            <p className="course-home__empty">
+                                Loading course work...
+                            </p>
+                        ) : workError ? (
+                            <p className="course-home__empty">
+                                {workError}
+                            </p>
+                        ) : toDoWork.length > 0 ? (
                             toDoWork.map((workItem) => (
                                 <Link
                                     to={
-                                        workItem.type === "Assignment"
+                                        workItem.type ===
+                                        "Assignment"
                                             ? `/student/course/${courseId}/assignments/${workItem.id}`
                                             : `/student/course/${courseId}/quizzes/${workItem.id}`
                                     }
@@ -208,7 +282,10 @@ function CourseHome() {
                                     key={`${workItem.type}-${workItem.id}`}
                                 >
                                     <div>
-                                        <h3>{workItem.title}</h3>
+                                        <h3>
+                                            {workItem.title}
+                                        </h3>
+
                                         <p>
                                             {workItem.type}
                                             {workItem.inProgress
@@ -235,7 +312,15 @@ function CourseHome() {
                     <section className="course-home__card">
                         <h2>Overdue</h2>
 
-                        {overdueWork.length > 0 ? (
+                        {workLoading ? (
+                            <p className="course-home__empty">
+                                Loading course work...
+                            </p>
+                        ) : workError ? (
+                            <p className="course-home__empty">
+                                {workError}
+                            </p>
+                        ) : overdueWork.length > 0 ? (
                             overdueWork.map((workItem) => (
                                 <div
                                     className="course-work-item"
@@ -245,7 +330,9 @@ function CourseHome() {
                                     }
                                 >
                                     <div>
-                                        <h3>{workItem.title}</h3>
+                                        <h3>
+                                            {workItem.title}
+                                        </h3>
                                         <p>{workItem.type}</p>
                                     </div>
 
@@ -259,7 +346,7 @@ function CourseHome() {
                             ))
                         ) : (
                             <p className="course-home__empty">
-                                No overdue work for this course.
+                                No overdue work for this course
                             </p>
                         )}
                     </section>
