@@ -1267,8 +1267,8 @@ app.get('/api/courses/assignments/:courseID',
                 sqlQuery = `SELECT * FROM Assignments where course_id = ?`;
             }
             else { 
-                sqlQuery = `SELECT assignment_id, title, due_date, max_points, assignment_link
-                           FROM Assignments where course_id = ?`;
+                sqlQuery = `SELECT assignment_id, title, due_date, max_points, assignment_link, allow_resubmission
+                           FROM Assignments WHERE course_id = ? AND isArchived = 0`;
             }
             
             const [foundCourseWithAssignments] = await connectionPool.query(
