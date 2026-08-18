@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from "./apiHelper.js";
 
 export async function createSubmission(
   assignment_id,

@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from "./apiHelper.js";
 
 export async function createAnnouncement(course_id, title, message) {
   return apiRequest('/Announcements', {
