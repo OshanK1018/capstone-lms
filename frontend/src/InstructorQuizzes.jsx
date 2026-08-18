@@ -22,7 +22,7 @@ import InstructorSidebar from "./components/InstructorSidebar";
 
 import {
   getCurrentUser,
-} from "../../backend/userServices.js";
+} from "../../backend/authServices.js";
 
 import {
   getCoursesForInstructor,
@@ -1091,13 +1091,16 @@ function InstructorQuizzes() {
 
       setIsCreating(true);
 
+      const formattedDueDate =
+        `${quizForm.dueDate} 23:59:59`;
+
       const quizResult =
         await createQuiz(
           Number(
             quizForm.courseId
           ),
           quizForm.title.trim(),
-          quizForm.dueDate
+          formattedDueDate
         );
 
       if (!quizResult.success) {

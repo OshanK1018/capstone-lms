@@ -26,7 +26,7 @@ import InstructorSidebar from "./components/InstructorSidebar";
 
 import {
   getCurrentUser,
-} from "../../backend/userServices.js";
+} from "../../backend/authServices.js";
 
 import {
   getCoursesForInstructor,
@@ -720,13 +720,16 @@ function InstructorAssignments() {
 
       setIsCreating(true);
 
+      const formattedDueDate =
+        `${assignmentForm.dueDate} 23:59:59`;
+
       const result =
         await createAssignment(
           Number(
             assignmentForm.courseId
           ),
           assignmentForm.title.trim(),
-          assignmentForm.dueDate,
+          formattedDueDate,
           Number(
             assignmentForm.points
           ),

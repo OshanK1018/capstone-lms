@@ -7,7 +7,7 @@ import InstructorSidebar from "./components/InstructorSidebar";
 
 import {
   getCurrentUser,
-} from "../../backend/userServices.js";
+} from "../../backend/authServices.js";
 
 import {
   getCoursesForInstructor,
