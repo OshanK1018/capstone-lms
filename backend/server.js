@@ -1400,7 +1400,7 @@ app.get('/api/courses/announcements/:courseID',
                 sqlQuery = `SELECT * FROM Announcements WHERE course_id = ?`;
             }
             else { 
-                sqlQuery = `SELECT Announcement.announcement_id, Announcements.title, Announcements.message, Announcements.date_posted, Courses.title AS course_title 
+                sqlQuery = `SELECT Announcements.announcement_id, Announcements.title, Announcements.message, Announcements.date_posted, Courses.title AS course_title 
                             FROM Announcements 
                             LEFT JOIN Courses ON Courses.course_id = Announcements.course_id
                             WHERE Announcements.course_id = ?`;
