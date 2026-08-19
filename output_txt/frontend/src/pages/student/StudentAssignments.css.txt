@@ -1,0 +1,79 @@
+.assignment-row {
+    margin: 0 28px;
+    padding: 20px 0;
+    display: grid;
+    grid-template-columns: 1fr 120px 120px 90px;
+    align-items: center;
+    gap: 28px;
+    border-top: 1px solid #edf2f7;
+}
+
+.assignment-row:first-of-type {
+    border-top: 0;
+}
+
+.assignment-row__info h2 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.assignment-row__details {
+    display: contents;
+}
+
+.assignment-row__details span {
+    display: block;
+    margin-bottom: 3px;
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.assignment-row__details strong {
+    color: #334155;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.assignment-row__button {
+    justify-self: end;
+    width: 76px;
+    height: 34px;
+    border: 0;
+    border-radius: 7px;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.assignment-row__button:hover {
+    background: #2563eb;
+}
+
+@media (max-width: 900px) {
+    .assignment-row {
+        grid-template-columns: 1fr 120px 120px 76px;
+        gap: 16px;
+    }
+}
+
+@media (max-width: 650px) {
+    .assignment-row {
+        margin: 0 20px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .assignment-row__details {
+        display: flex;
+        gap: 28px;
+    }
+
+    .assignment-row__button {
+        justify-self: start;
+    }
+}

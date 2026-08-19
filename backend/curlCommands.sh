@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# login as admin and capture jwt token
+token=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"tkhandaker@hunter.cuny.edu","password":"passadmin"}' \
+  | jq -r '.jwtToken')
+
+echo "token: $token"
+echo
+
+# get current user (authenticated)
+curl -s -X GET http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get user by id (existing student, no auth required)
+curl -s -X GET http://localhost:3000/api/Users/4 \
+  | jq .
+
+# create a new course (unique title to avoid conflict)
+curl -s -X POST http://localhost:3000/api/Courses \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"CSCI150 - Programming Fundamentals","term":"Spring 2027","instructor_id":2,"max_seats":30,"credits":3,"materials_url":null}' \
+  | jq .
+
+# create another course with exact dates
+curl -s -X POST http://localhost:3000/api/Courses/exactDate \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"MATH150 - Precalculus","start_date":"2027-01-15","end_date":"2027-05-15","instructor_id":3,"max_seats":25,"credits":3,"materials_url":"http://example.com/precalc"}' \
+  | jq .
+
+# get all courses (should include the new ones)
+curl -s -X GET http://localhost:3000/api/courses/all \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get courses for instructor 2 (david chen)
+curl -s -X GET http://localhost:3000/api/courses/instructor/2 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get courses for student 4 (john doe)
+curl -s -X GET http://localhost:3000/api/courses/student/4 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get course by id (existing course 1)
+curl -s -X GET http://localhost:3000/api/courses/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get students enrolled in course 1
+curl -s -X GET http://localhost:3000/api/courses/students/1 \
+  | jq .
+
+# enroll a student into a new course (student 4 into new course - use the id returned from the first create, e.g., 8)
+# adjust course_id to the actual id from the create response above.
+curl -s -X POST http://localhost:3000/api/enrollments/students/ \
+  -H "Content-Type: application/json" \
+  -d '{"student_id":4,"course_id":8}' \
+  | jq .
+
+# create an assignment for an existing course (course 1) with future due date
+curl -s -X POST http://localhost:3000/api/Assignments \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"course_id":1,"title":"Homework 4 - API Test","due_date":"2027-03-01 23:59:59","max_points":100,"assignment_link":"http://example.com/hw4","allow_resubmission":true}' \
+  | jq .
+
+# create an announcement for course 1
+curl -s -X POST http://localhost:3000/api/Announcements \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"course_id":1,"title":"Final Exam Info","message":"Final will be online via Zoom"}' \
+  | jq .
+
+# create a quiz for course 1
+curl -s -X POST http://localhost:3000/api/Quizzes \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"course_id":1,"title":"Quiz 3 - API Test","due_date":"2027-02-15 23:59:59"}' \
+  | jq .
+
+# create a quiz question for existing quiz 1 (id 1)
+curl -s -X POST http://localhost:3000/api/Quiz_Questions \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"quiz_id":1,"question_text":"What is the square root of 144?","correct_answer":"12","score":5}' \
+  | jq .
+
+# record a quiz attempt for student 4 on quiz 1
+curl -s -X POST http://localhost:3000/api/Quiz_Attempts \
+  -H "Content-Type: application/json" \
+  -d '{"quiz_id":1,"student_id":4,"score":88}' \
+  | jq .
+
+# create a submission for the newly created assignment (use the assignment id from the create response)
+# adjust assignment_id to the actual id returned earlier.
+curl -s -X POST http://localhost:3000/api/Submissions \
+  -H "Content-Type: application/json" \
+  -d '{"assignment_id":6,"student_id":4,"submission_link":"http://example.com/submit_hw4","score":null,"feedback":null}' \
+  | jq .
+
+# assign a course grade for student 4 in course 1 (if not already assigned)
+curl -s -X POST http://localhost:3000/api/Course_Grades \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"student_id":4,"course_id":1,"letter_grade":"A","score":96}' \
+  | jq .
+
+# get assignments for course 1
+curl -s -X GET http://localhost:3000/api/courses/assignments/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get quizzes for course 1
+curl -s -X GET http://localhost:3000/api/courses/quizzes/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get announcements for course 1
+curl -s -X GET http://localhost:3000/api/courses/announcements/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get questions for quiz 1
+curl -s -X GET http://localhost:3000/api/Quizzes/1/questions \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get attempts for quiz 1
+curl -s -X GET http://localhost:3000/api/Quizzes/1/attempts \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get quiz attempts for student 4
+curl -s -X GET http://localhost:3000/api/students/quiz_attempts/4 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get a specific course grade for student 4 in course 1
+curl -s -X GET http://localhost:3000/api/Course_Grades/4/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# get all grades for course 1 (admin view)
+curl -s -X GET http://localhost:3000/api/Courses/1/grades \
+  -H "Authorization: Bearer $token" \
+  | jq .
+
+# update the course grade for student 4 in course 1
+curl -s -X PATCH http://localhost:3000/api/Course_Grades/4/1/update \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"letter_grade":"A","score":99}' \
+  | jq .
+
+# update quiz 1 (change title and due date to future)
+curl -s -X PUT http://localhost:3000/api/Quizzes/1 \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Updated Week 1 Quiz","due_date":"2027-02-01 23:59:59"}' \
+  | jq .
+
+# update quiz question 1 (existing question id 1)
+curl -s -X PUT http://localhost:3000/api/Quiz_Questions/1 \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"question_text":"What is 2+2? (revised)","correct_answer":"4","score":10}' \
+  | jq .
+
+# delete quiz question 1 (soft delete)
+curl -s -X DELETE http://localhost:3000/api/Quiz_Questions/1 \
+  -H "Authorization: Bearer $token" \
+  | jq .

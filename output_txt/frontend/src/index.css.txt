@@ -1,0 +1,26 @@
+/* Global app settings. */
+:root {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Base page styling for the browser body. */
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Makes form elements use the same font as the rest of the app. */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* Applies border-box sizing to every element. */
+* {
+  box-sizing: border-box;
+}
