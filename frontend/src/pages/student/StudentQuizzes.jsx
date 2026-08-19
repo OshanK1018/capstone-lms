@@ -2,7 +2,7 @@ import "./CoursePages.css";
 import "./StudentQuizzes.css";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
+import { getQuizzesForCourse, getQuizAttempts } from "../../../../backend/quizServices.js";
 
 // Temporary frontend data until backend API integration is connected
 // import {
@@ -43,8 +43,8 @@ function StudentQuizzes() {
     // Loads quizzes posted for this course from the backend.
     const [courseQuizzes, setCourseQuizzes] = useState([]);
     const [quizError, setQuizError] = useState("");
-    const [quizzesLoading, setQuizzesLoading] =
-        useState(true);
+    const [quizzesLoading, setQuizzesLoading] = useState(true);
+    const [backendAttempts, setBackendAttempts] = useState([]);
 
     useEffect(() => {
         async function loadQuizzes() {
@@ -73,6 +73,40 @@ function StudentQuizzes() {
                 dueDate: quiz.due_date?.slice(0, 10),
             }));
 
+            const attemptResults = await Promise.all(
+                normalizedQuizzes.map(async (quiz) => {
+                    const attemptResult =
+                        await getQuizAttempts(quiz.id);
+
+                    if (!attemptResult.success) {
+                        return null;
+                    }
+
+                    const attempts =
+                        attemptResult.data?.attempts || [];
+
+                    if (attempts.length === 0) {
+                        return null;
+                    }
+
+                    const latestAttempt = [...attempts].sort(
+                        (first, second) =>
+                            new Date(second.attempt_date) -
+                            new Date(first.attempt_date)
+                    )[0];
+
+                    return {
+                        id: latestAttempt.attempt_id,
+                        quizId: quiz.id,
+                        courseId: Number(courseId),
+                        status: "Completed",
+                        score: latestAttempt.score,
+                        attemptDate: latestAttempt.attempt_date,
+                    };
+                })
+            );
+
+            setBackendAttempts(attemptResults.filter(Boolean));
             setCourseQuizzes(normalizedQuizzes);
             setQuizzesLoading(false);
         }
@@ -103,11 +137,19 @@ function StudentQuizzes() {
     // );
 
     function getQuizAttempt(quizId) {
-        return savedAttempts.find(
+        const backendAttempt = backendAttempts.find(
             (attempt) =>
                 String(attempt.quizId) === String(quizId) &&
                 String(attempt.courseId) === String(courseId)
         );
+
+        const localAttempt = savedAttempts.find(
+            (attempt) =>
+                String(attempt.quizId) === String(quizId) &&
+                String(attempt.courseId) === String(courseId)
+        );
+
+        return backendAttempt || localAttempt;
     }
 
     function getSortStatus(quiz) {
@@ -206,17 +248,6 @@ function StudentQuizzes() {
                                             )}
                                         </strong>
                                     </div>
-
-                                    {/* 
-                                    currently the backend does not return a time limit
-                                    
-                                    <div>
-                                        <span>Time Limit</span>
-
-                                        <strong>
-                                            {quiz.timeLimit} minutes
-                                        </strong>
-                                    </div> */}
                                 </div>
 
                                 {attempt?.status ===
@@ -225,7 +256,11 @@ function StudentQuizzes() {
                                         <span>Score</span>
 
                                         <strong>
-                                            {attempt.percentage}%
+                                            {attempt.percentage != null
+                                                ? `${attempt.percentage}%`
+                                                : attempt.score != null
+                                                ? attempt.score
+                                                : "Pending"}
                                         </strong>
                                     </div>
                                 ) : quizStatus === "Missed" ? (

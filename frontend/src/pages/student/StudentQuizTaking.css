@@ -126,6 +126,22 @@
     gap: 9px;
 }
 
+.short-answer-input {
+    width: 100%;
+    min-height: 140px;
+    padding: 16px;
+    border: 1px solid #dce3ed;
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.short-answer-input:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+
 .answer-choice {
     width: 100%;
     min-height: 52px;

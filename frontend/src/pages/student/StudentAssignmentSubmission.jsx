@@ -1,12 +1,7 @@
 import "./StudentAssignmentSubmission.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
-// Temporary frontend data until backend API integration is connected
-import {
-    enrolledCourses,
-    upcomingAssignments,
-} from "../../data/studentData";
+import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
 
 const assignmentSubmissionsKey = "assignmentSubmissions";
 
@@ -31,30 +26,56 @@ function isAssignmentOverdue(dueDate) {
 function StudentAssignmentSubmission() {
     const { courseId, assignmentId } = useParams();
     const navigate = useNavigate();
+    // Loads the selected instructor created assignment from the backend
+    const [selectedAssignment, setSelectedAssignment] = useState(null);
+    const [assignmentLoading, setAssignmentLoading] = useState(true);
+    const [assignmentError, setAssignmentError] = useState("");
+
+    useEffect(() => {
+        async function loadAssignment() {
+            const result = await getAssignmentsForCourse(courseId);
+
+            if (!result.success) {
+                setAssignmentError(
+                    result.error || "Unable to load assignment."
+                );
+                setAssignmentLoading(false);
+                return;
+            }
+
+            const assignment = (result.data?.assignments || []).find(
+                (item) =>
+                    String(item.assignment_id ?? item.id) ===
+                    assignmentId
+            );
+
+            if (!assignment) {
+                setAssignmentError("Assignment not found.");
+                setAssignmentLoading(false);
+                return;
+            }
+
+            setSelectedAssignment({
+                id: assignment.assignment_id ?? assignment.id,
+                courseId: Number(courseId),
+                courseCode: `COURSE ${courseId}`,
+                title: assignment.title,
+                dueDate: assignment.due_date?.slice(0, 10),
+                pointsPossible: assignment.max_points,
+                assignmentLink: assignment.assignment_link,
+                allowResubmission: Boolean(
+                    assignment.allow_resubmission
+                ),
+                attachments: [],
+            });
+
+            setAssignmentLoading(false);
+        }
+
+        loadAssignment();
+    }, [courseId, assignmentId]);
 
     const [selectedFile, setSelectedFile] = useState(null);
-
-    // Temporary browser storage
-    // Replace this with enrolled course data returned by the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
-
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
-
-    // Temporary mock lookup
-    // Later the backend will verify that the student has access to this course
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
-    );
-
-    // Temporary mock lookup
-    // Later request this assignment from the backend API
-    const selectedAssignment = upcomingAssignments.find(
-        (assignment) =>
-            String(assignment.id) === assignmentId &&
-            assignment.courseCode === selectedCourse?.code
-    );
 
     // Temporary browser storage
     // Replace this with assignment submission data from the backend API
@@ -111,7 +132,7 @@ function StudentAssignmentSubmission() {
 
         const assignmentSubmission = {
             assignmentId: selectedAssignment.id,
-            courseId: selectedCourse.id,
+            courseId: Number(courseId),
             fileName: selectedFile.name,
             submittedAt: new Date().toISOString(),
             status: "Submitted",
@@ -144,7 +165,11 @@ function StudentAssignmentSubmission() {
         returnToAssignments();
     }
 
-    if (!selectedCourse || !selectedAssignment) {
+    if (assignmentLoading) {
+        return <main className="assignment-page">Loading assignment...</main>;
+    }
+
+    if (assignmentError || !selectedAssignment) {
         return (
             <main className="assignment-page">
                 <section className="assignment-page__card">
@@ -187,8 +212,20 @@ function StudentAssignmentSubmission() {
                 </div>
 
                 <div className="assignment-page__section">
-                    <h2>Instructions</h2>
-                    <p>{selectedAssignment.description}</p>
+                    <h2>Assignment Instructions</h2>
+
+                    {selectedAssignment.assignmentLink ? (
+                        <a
+                            className="assignment-page__attachment"
+                            href={selectedAssignment.assignmentLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Open Assignment Link
+                        </a>
+                    ) : (
+                        <p>No assignment link was provided.</p>
+                    )}
                 </div>
 
                 {selectedAssignment.attachments.length > 0 && (

@@ -1,18 +1,8 @@
 import "./StudentQuizTaking.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-    Clock3,
-    ChevronLeft,
-    ChevronRight,
-} from "lucide-react";
-
-// Temporary frontend data until backend API integration is connected
-import {
-    enrolledCourses,
-    upcomingQuizzes,
-    quizQuestions,
-} from "../../data/studentData";
+import { Clock3, ChevronLeft, ChevronRight } from "lucide-react";
+import { getQuizzesForCourse, getQuizQuestions } from "../../../../backend/quizServices.js";
 
 const quizAttemptsKey = "quizAttempts";
 
@@ -52,34 +42,91 @@ function StudentQuizTaking() {
     const { courseId, quizId } = useParams();
     const navigate = useNavigate();
 
-    // Temporary browser storage
-    // Replace this with enrolled course data returned by the backend API
-    const savedCourses = localStorage.getItem("studentCourses");
-
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
-
-    // Temporary mock lookup
-    // Later the backend will verify that the student has access to this course
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
+    const selectedCourse = useMemo(
+        () => ({
+            id: Number(courseId),
+        }),
+        [courseId]
     );
 
-    // Temporary mock lookup
-    // Later request the available quiz from the backend API
-    const selectedQuiz = upcomingQuizzes.find(
-        (quiz) =>
-            String(quiz.id) === quizId &&
-            quiz.courseId === selectedCourse?.id
-    );
+    const [selectedQuiz, setSelectedQuiz] = useState(null);
+    const [questions, setQuestions] = useState([]);
+    const [quizLoading, setQuizLoading] = useState(true);
+    const [quizError, setQuizError] = useState("");
 
-    // Temporary mock quiz question data
-    // Later these questions will be returned by the backend API
-    // The real student API should not return correct answers
-    const questions = quizQuestions.filter(
-        (question) => question.quizId === selectedQuiz?.id
-    );
+    useEffect(() => {
+        async function loadSelectedQuiz() {
+            const result =
+                await getQuizzesForCourse(courseId);
+
+            if (!result.success) {
+                setQuizError(
+                    result.error || "Unable to load quiz."
+                );
+                setQuizLoading(false);
+                return;
+            }
+
+            const quiz = (
+                result.data?.quizzes || []
+            ).find(
+                (item) =>
+                    String(item.quiz_id ?? item.id) === quizId
+            );
+
+            if (!quiz) {
+                setQuizError("Quiz not found.");
+                setQuizLoading(false);
+                return;
+            }
+
+            const questionsResult =
+                await getQuizQuestions(quizId);
+
+            if (!questionsResult.success) {
+                setQuizError(
+                    questionsResult.error ||
+                    "Unable to load quiz questions."
+                );
+                setQuizLoading(false);
+                return;
+            }
+
+            const normalizedQuestions = (
+                questionsResult.data?.questions || []
+            ).map((question) => ({
+                id:
+                    question.question_id ??
+                    question.id,
+                quizId:
+                    question.quiz_id ??
+                    Number(quizId),
+                question:
+                    question.question_text ??
+                    question.question,
+                points: Number(
+                    question.score ?? 1
+                ),
+            }));
+
+            setQuestions(normalizedQuestions);
+
+            setSelectedQuiz({
+                id: quiz.quiz_id ?? quiz.id,
+                courseId:
+                    quiz.course_id ?? Number(courseId),
+                title: quiz.title,
+                dueDate: quiz.due_date?.slice(0, 10),
+
+                // Temporary default because the backend has no time-limit field
+                timeLimit: 5,
+            });
+
+            setQuizLoading(false);
+        }
+
+        loadSelectedQuiz();
+    }, [courseId, quizId]);
 
     // Temporary browser storage
     // Later the backend will return the student's quiz attempt
@@ -126,6 +173,36 @@ function StudentQuizTaking() {
             ? getTimeLimitInSeconds(selectedQuiz.timeLimit)
             : 0;
     });
+
+    useEffect(() => {
+        if (!selectedQuiz) {
+            return;
+        }
+
+        const attempts = JSON.parse(
+            localStorage.getItem(quizAttemptsKey) || "[]"
+        );
+
+        const attempt = attempts.find(
+            (item) =>
+                item.quizId === selectedQuiz.id &&
+                item.courseId === selectedCourse.id
+        );
+
+        setQuizStarted(
+            attempt?.status === "In Progress"
+        );
+        setAnswers(attempt?.answers || {});
+        setExpiresAt(attempt?.expiresAt || null);
+
+        setTimeRemaining(
+            attempt?.expiresAt
+                ? getRemainingTime(attempt.expiresAt)
+                : getTimeLimitInSeconds(
+                      selectedQuiz.timeLimit
+                  )
+        );
+    }, [selectedQuiz, selectedCourse]);
 
     // Start the student's quiz attempt after they click Begin Quiz
     useEffect(() => {
@@ -184,29 +261,17 @@ function StudentQuizTaking() {
         questions.length,
     ]);
 
-    // Temporary frontend grading simulation
-    // Later remove this because the backend will grade the attempt
-    function getMockQuizResult() {
-        const score = questions.reduce(
-            (total, question) => {
-                if (
-                    answers[question.id] ===
-                    question.correctAnswer
-                ) {
-                    return total + 1;
-                }
-
-                return total;
-            },
-            0
-        );
+    // Backend grading is not available yet
+    function getPendingQuizResult() {
+        const answeredCount =
+            Object.values(answers).filter(
+                (answer) =>
+                    String(answer).trim().length > 0
+            ).length;
 
         return {
-            score,
+            answeredCount,
             totalQuestions: questions.length,
-            percentage: Math.round(
-                (score / questions.length) * 100
-            ),
         };
     }
 
@@ -239,10 +304,10 @@ function StudentQuizTaking() {
         );
     }
 
-    function handleAnswer(choiceId) {
+    function handleAnswer(answer) {
         const updatedAnswers = {
             ...answers,
-            [currentQuestion.id]: choiceId,
+            [currentQuestion.id]: answer,
         };
 
         setAnswers(updatedAnswers);
@@ -260,10 +325,10 @@ function StudentQuizTaking() {
 
         setIsSubmitting(true);
 
-        const result = getMockQuizResult();
+        const result = getPendingQuizResult();
 
         // Main backend integration point:
-        // Later POST the student's quiz attempt to the backend API
+        // Later POST the student's quiz answers to the backend API
         const quizAttempt = {
             courseId,
             quizId,
@@ -289,10 +354,12 @@ function StudentQuizTaking() {
                         ...attempt,
                         status: "Completed",
                         answers,
-                        score: result.score,
+                        answeredCount:
+                            result.answeredCount,
                         totalQuestions:
                             result.totalQuestions,
-                        percentage: result.percentage,
+                        submittedAt:
+                            new Date().toISOString(),
                     };
                 }
 
@@ -372,6 +439,34 @@ function StudentQuizTaking() {
         navigate(`/student/course/${courseId}/quizzes`);
     }
 
+    if (quizLoading) {
+        return (
+            <main className="quiz-taking">
+                <div className="quiz-taking__container">
+                    <section className="message-card">
+                        <h1>Loading quiz...</h1>
+                    </section>
+                </div>
+            </main>
+        );
+    }
+
+    if (quizError) {
+        return (
+            <main className="quiz-taking">
+                <div className="quiz-taking__container">
+                    <section className="message-card">
+                        <h1>Quiz Not Available</h1>
+
+                        <p className="message-card__text">
+                            {quizError}
+                        </p>
+                    </section>
+                </div>
+            </main>
+        );
+    }
+
     if (!selectedCourse || !selectedQuiz) {
         return (
             <main className="quiz-taking">
@@ -424,10 +519,11 @@ function StudentQuizTaking() {
             <main className="quiz-taking">
                 <div className="quiz-taking__container">
                     <section className="message-card">
-                        <h1>Quiz Completed</h1>
+                        <h1>Quiz Submitted</h1>
 
                         <p className="message-card__text">
-                            You have already submitted this quiz
+                            You have already submitted this quiz.
+                            Grading is pending.
                         </p>
 
                         <button
@@ -486,7 +582,11 @@ function StudentQuizTaking() {
 
     const currentQuestion = questions[currentQuestionIndex];
 
-    const answeredCount = Object.keys(answers).length;
+    const answeredCount =
+        Object.values(answers).filter(
+            (answer) =>
+                String(answer).trim().length > 0
+        ).length;
 
     const progressPercent =
         ((currentQuestionIndex + 1) /
@@ -499,21 +599,23 @@ function StudentQuizTaking() {
                 <div className="quiz-taking__container">
                     <section className="result-card">
                         <p className="result-card__label">
-                            QUIZ COMPLETE
+                            QUIZ SUBMITTED
                         </p>
 
                         <h1>{selectedQuiz.title}</h1>
 
                         <div className="result-card__score">
-                            <strong>
-                                {quizResult.percentage}%
-                            </strong>
+                            <strong>Submitted</strong>
 
                             <span>
-                                {quizResult.score} of{" "}
-                                {quizResult.totalQuestions} correct
+                                {quizResult.answeredCount} of{" "}
+                                {quizResult.totalQuestions} answered
                             </span>
                         </div>
+
+                        <p className="message-card__text">
+                            Backend grading is not connected yet.
+                        </p>
 
                         <button
                             type="button"
@@ -588,45 +690,20 @@ function StudentQuizTaking() {
                             </h2>
 
                             <div className="question-content__choices">
-                                {currentQuestion.choices.map(
-                                    (
-                                        choice,
-                                        choiceIndex
-                                    ) => {
-                                        const isSelected =
-                                            answers[
-                                                currentQuestion.id
-                                            ] === choice.id;
-
-                                        return (
-                                            <button
-                                                type="button"
-                                                className={`answer-choice ${
-                                                    isSelected
-                                                        ? "answer-choice--selected"
-                                                        : ""
-                                                }`}
-                                                onClick={() =>
-                                                    handleAnswer(
-                                                        choice.id
-                                                    )
-                                                }
-                                                key={choice.id}
-                                            >
-                                                <span className="answer-choice__letter">
-                                                    {String.fromCharCode(
-                                                        65 +
-                                                            choiceIndex
-                                                    )}
-                                                </span>
-
-                                                <span>
-                                                    {choice.text}
-                                                </span>
-                                            </button>
-                                        );
+                                <textarea
+                                    className="short-answer-input"
+                                    value={
+                                        answers[
+                                            currentQuestion.id
+                                        ] || ""
                                     }
-                                )}
+                                    placeholder="Type your answer here"
+                                    onChange={(event) =>
+                                        handleAnswer(
+                                            event.target.value
+                                        )
+                                    }
+                                />
                             </div>
                         </div>
 
@@ -679,9 +756,11 @@ function StudentQuizTaking() {
                             {questions.map(
                                 (question, index) => {
                                     const isAnswered =
-                                        answers[
-                                            question.id
-                                        ] !== undefined;
+                                        String(
+                                            answers[
+                                                question.id
+                                            ] || ""
+                                        ).trim().length > 0;
 
                                     const isCurrent =
                                         index ===

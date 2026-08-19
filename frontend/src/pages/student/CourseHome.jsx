@@ -2,13 +2,9 @@ import "./CourseHome.css";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
-import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
-
-// Announcements remain temporary until their backend route is fixed
-import {
-    enrolledCourses,
-    announcements,
-} from "../../data/studentData";
+import { getQuizzesForCourse, getQuizAttempts } from "../../../../backend/quizServices.js";
+import { getAnnouncementsForCourse } from "../../../../backend/announcementServices.js";
+import { getCourseById } from "../../../../backend/courseServices.js";
 
 const assignmentSubmissionsKey = "assignmentSubmissions";
 const quizAttemptsKey = "quizAttempts";
@@ -42,30 +38,49 @@ function CourseHome() {
     const { courseId } = useParams();
     const navigate = useNavigate();
 
+    const [selectedCourse, setSelectedCourse] = useState(null);
     const [courseAssignments, setCourseAssignments] = useState([]);
     const [courseQuizzes, setCourseQuizzes] = useState([]);
+    const [backendQuizAttempts, setBackendQuizAttempts] = useState([]);
     const [workLoading, setWorkLoading] = useState(true);
     const [workError, setWorkError] = useState("");
+    const [courseAnnouncements, setCourseAnnouncements] = useState([]);
+    const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+    const [announcementError, setAnnouncementError] = useState("");
 
     useEffect(() => {
         async function loadCourseWork() {
             setWorkLoading(true);
             setWorkError("");
 
-            const [assignmentsResult, quizzesResult] =
-                await Promise.all([
-                    getAssignmentsForCourse(courseId),
-                    getQuizzesForCourse(courseId),
-                ]);
+            const [courseResult, assignmentsResult, quizzesResult] = await Promise.all([
+                getCourseById(courseId),
+                getAssignmentsForCourse(courseId),
+                getQuizzesForCourse(courseId),
+            ]);
+
+            if (courseResult.success && courseResult.data?.course) {
+                const course = courseResult.data.course;
+
+                setSelectedCourse({
+                    id: course.course_id,
+                    code: `COURSE ${course.course_id}`,
+                    title: course.title,
+                    instructor:
+                        course.instructor_name || "Instructor",
+                });
+            }
 
             if (
+                !courseResult.success ||
                 !assignmentsResult.success ||
                 !quizzesResult.success
             ) {
                 setWorkError(
+                    courseResult.error ||
                     assignmentsResult.error ||
                     quizzesResult.error ||
-                    "Unable to load course work"
+                    "Unable to load course information"
                 );
                 setWorkLoading(false);
                 return;
@@ -74,17 +89,12 @@ function CourseHome() {
             const assignments = (
                 assignmentsResult.data?.assignments || []
             ).map((assignment) => ({
-                id:
-                    assignment.assignment_id ??
-                    assignment.id,
+                id: assignment.assignment_id ?? assignment.id,
                 courseId:
-                    assignment.course_id ??
-                    Number(courseId),
+                    assignment.course_id ?? Number(courseId),
                 title: assignment.title,
-                dueDate:
-                    assignment.due_date?.slice(0, 10),
-                assignmentLink:
-                    assignment.assignment_link,
+                dueDate: assignment.due_date?.slice(0, 10),
+                assignmentLink: assignment.assignment_link,
                 allowResubmission: Boolean(
                     assignment.allow_resubmission
                 ),
@@ -94,13 +104,42 @@ function CourseHome() {
                 quizzesResult.data?.quizzes || []
             ).map((quiz) => ({
                 id: quiz.quiz_id ?? quiz.id,
-                courseId:
-                    quiz.course_id ??
-                    Number(courseId),
+                courseId: quiz.course_id ?? Number(courseId),
                 title: quiz.title,
                 dueDate: quiz.due_date?.slice(0, 10),
             }));
 
+            const attemptResults = await Promise.all(
+                quizzes.map(async (quiz) => {
+                    const result = await getQuizAttempts(quiz.id);
+
+                    if (!result.success) {
+                        return null;
+                    }
+
+                    const attempts = result.data?.attempts || [];
+
+                    if (attempts.length === 0) {
+                        return null;
+                    }
+
+                    const latestAttempt = [...attempts].sort(
+                        (first, second) =>
+                            new Date(second.attempt_date) -
+                            new Date(first.attempt_date)
+                    )[0];
+
+                    return {
+                        id: latestAttempt.attempt_id,
+                        quizId: quiz.id,
+                        courseId: Number(courseId),
+                        status: "Completed",
+                        score: latestAttempt.score,
+                    };
+                })
+            );
+
+            setBackendQuizAttempts(attemptResults.filter(Boolean));
             setCourseAssignments(assignments);
             setCourseQuizzes(quizzes);
             setWorkLoading(false);
@@ -109,16 +148,43 @@ function CourseHome() {
         loadCourseWork();
     }, [courseId]);
 
-    const savedCourses =
-        localStorage.getItem("studentCourses");
+    useEffect(() => {
+        async function loadAnnouncements() {
+            setAnnouncementsLoading(true);
+            setAnnouncementError("");
 
-    const studentCourses = savedCourses
-        ? JSON.parse(savedCourses)
-        : enrolledCourses;
+            const result =
+                await getAnnouncementsForCourse(courseId);
 
-    const selectedCourse = studentCourses.find(
-        (course) => String(course.id) === courseId
-    );
+            if (!result.success) {
+                setAnnouncementError(
+                    result.error ||
+                    "Unable to load announcements."
+                );
+                setAnnouncementsLoading(false);
+                return;
+            }
+
+            const normalizedAnnouncements = (
+                result.data?.announcements || []
+            ).map((announcement) => ({
+                id:
+                    announcement.announcement_id ??
+                    announcement.id,
+                title: announcement.title,
+                message: announcement.message,
+                date:
+                    announcement.date_posted?.slice(0, 10),
+            }));
+
+            setCourseAnnouncements(
+                sortByNewestDate(normalizedAnnouncements)
+            );
+            setAnnouncementsLoading(false);
+        }
+
+        loadAnnouncements();
+    }, [courseId]);
 
     const assignmentSubmissions = JSON.parse(
         localStorage.getItem(assignmentSubmissionsKey) || "[]"
@@ -138,11 +204,19 @@ function CourseHome() {
     }
 
     function getQuizAttempt(quizId) {
-        return quizAttempts.find(
+        const backendAttempt = backendQuizAttempts.find(
             (attempt) =>
                 String(attempt.quizId) === String(quizId) &&
                 String(attempt.courseId) === courseId
         );
+
+        const localAttempt = quizAttempts.find(
+            (attempt) =>
+                String(attempt.quizId) === String(quizId) &&
+                String(attempt.courseId) === courseId
+        );
+
+        return backendAttempt || localAttempt;
     }
 
     const allCourseWork = [
@@ -187,16 +261,6 @@ function CourseHome() {
         )
     );
 
-    const courseAnnouncements = selectedCourse
-        ? sortByNewestDate(
-              announcements.filter(
-                  (announcement) =>
-                      announcement.courseCode ===
-                      selectedCourse.code
-              )
-          )
-        : [];
-
     function handleOpenWork(workItem) {
         const page =
             workItem.type === "Assignment"
@@ -205,6 +269,16 @@ function CourseHome() {
 
         navigate(
             `/student/course/${courseId}/${page}/${workItem.id}`
+        );
+    }
+
+    if (workLoading && !selectedCourse) {
+        return (
+            <main className="course-home">
+                <section className="course-home__card">
+                    <h1>Loading course...</h1>
+                </section>
+            </main>
         );
     }
 
@@ -225,34 +299,32 @@ function CourseHome() {
                 <section className="course-home__card">
                     <h2>Announcements</h2>
 
-                    {courseAnnouncements.length > 0 ? (
-                        courseAnnouncements.map(
-                            (announcement) => (
-                                <div
-                                    className="course-home-item"
-                                    key={announcement.id}
-                                >
-                                    <span>
-                                        {formatDisplayDate(
-                                            announcement.date
-                                        )}
-                                    </span>
+                    {announcementsLoading ? (
+                        <p className="course-home__empty">
+                            Loading announcements...
+                        </p>
+                    ) : announcementError ? (
+                        <p className="course-home__empty">
+                            {announcementError}
+                        </p>
+                    ) : courseAnnouncements.length > 0 ? (
+                        courseAnnouncements.map((announcement) => (
+                            <div
+                                className="course-home-item"
+                                key={announcement.id}
+                            >
+                                <span>
+                                    {formatDisplayDate(announcement.date)}
+                                </span>
 
-                                    <h3>
-                                        {
-                                            announcement.courseCode
-                                        }
-                                    </h3>
+                                <h3>{announcement.title}</h3>
 
-                                    <p>
-                                        {announcement.message}
-                                    </p>
-                                </div>
-                            )
-                        )
+                                <p>{announcement.message}</p>
+                            </div>
+                        ))
                     ) : (
                         <p className="course-home__empty">
-                            No announcements posted for this course
+                            No announcements posted for this course.
                         </p>
                     )}
                 </section>

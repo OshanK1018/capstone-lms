@@ -36,6 +36,11 @@
     font-size: 0.72rem;
     font-weight: 800;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    text-decoration: none;
 }
 
 .material-row__button:hover {

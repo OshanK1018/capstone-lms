@@ -5,12 +5,6 @@ import { getCurrentUser } from "../../../../backend/authServices.js";
 import { getAllCourses, getCoursesForStudent, } from "../../../../backend/courseServices.js";
 import { enrollStudent } from "../../../../backend/enrollmentServices.js";
 
-// Temporary frontend data until backend API integration is connected
-// import {
-//     courseCatalog,
-//     enrolledCourses,
-// } from "../../data/studentData";
-
 const studentCoursesKey = "studentCourses";
 const catalogCoursesKey = "catalogCourses";
 
@@ -244,6 +238,7 @@ function CourseEnrollment() {
 
     // Main backend integration point: call the appropriate enroll or drop API endpoint here
     async function confirmAction() {
+        setBackendError("");
         const course = selectedAction.course;
 
         if (selectedAction.type === "enroll") {
@@ -260,76 +255,50 @@ function CourseEnrollment() {
                 setBackendError(
                     result.error || "Unable to enroll in course"
                 );
+                
                 closeActionModal();
                 return;
             }
-            // Temporary frontend enrollment simulation
-            // The backend should validate and create the enrollment
-            const updatedStudentCourses = [
-                ...studentCourses,
-                course,
-            ];
+            // Refreshes enrollment and seat information from the database
+            const [
+                updatedCatalogResult,
+                updatedCoursesResult,
+            ] = await Promise.all([
+                getAllCourses(),
+                getCoursesForStudent(studentId),
+            ]);
 
-            // Temporary frontend seat count update
-            // The backend should handle this as part of the enrollment transaction
-            const updatedCatalogCourses =
-                catalogCourses.map((catalogCourse) => {
-                    if (catalogCourse.id !== course.id) {
-                        return catalogCourse;
-                    }
-
-                    const updatedSeatsOpen = Math.max(
-                        catalogCourse.seatsOpen - 1,
-                        0
-                    );
-
-                    return {
-                        ...catalogCourse,
-                        seatsOpen: updatedSeatsOpen,
-                        availability:
-                            updatedSeatsOpen === 0
-                                ? "Closed"
-                                : "Open",
-                    };
-                });
-
-            updateStudentCourses(updatedStudentCourses);
-            updateCatalogCourses(updatedCatalogCourses);
-        }
-
-        if (selectedAction.type === "drop") {
-            if (selectedAction.type === "drop") {
+            if (
+                !updatedCatalogResult.success ||
+                !updatedCoursesResult.success
+            ) {
                 setBackendError(
-                    "Dropping a course is not connected yet."
+                    updatedCatalogResult.error ||
+                    updatedCoursesResult.error ||
+                    "Enrolled successfully, but could not refresh courses."
                 );
                 closeActionModal();
                 return;
             }
-            // // Temporary frontend drop simulation
-            // // The backend should remove the enrollment
-            // const updatedStudentCourses =
-            //     studentCourses.filter((studentCourse) => {
-            //         return studentCourse.id !== course.id;
-            //     });
 
-            // Temporary frontend seat count update
-            // The backend should update availability as part of the drop transaction
-            const updatedCatalogCourses =
-                catalogCourses.map((catalogCourse) => {
-                    if (catalogCourse.id !== course.id) {
-                        return catalogCourse;
-                    }
+            const updatedCatalog = (
+                updatedCatalogResult.data?.courses || []
+            ).map(normalizeCourse);
 
-                    return {
-                        ...catalogCourse,
-                        seatsOpen:
-                            catalogCourse.seatsOpen + 1,
-                        availability: "Open",
-                    };
-                });
+            const updatedEnrolledCourses = (
+                updatedCoursesResult.data?.courses || []
+            ).map(normalizeCourse);
 
-            updateStudentCourses(updatedStudentCourses);
-            updateCatalogCourses(updatedCatalogCourses);
+            updateCatalogCourses(updatedCatalog);
+            updateStudentCourses(updatedEnrolledCourses);
+        }
+
+        if (selectedAction.type === "drop") {
+            window.alert(
+                "Dropping a course is not connected to the backend yet."
+            );
+            closeActionModal();
+            return;
         }
 
         closeActionModal();
@@ -373,6 +342,12 @@ function CourseEnrollment() {
                         Search for available courses and manage
                         your current schedule
                     </p>
+
+                    {backendError && (
+                        <p className="enrollment__error" role="alert">
+                            {backendError}
+                        </p>
+                    )}
                 </header>
 
                 <div className="enrollment__layout">

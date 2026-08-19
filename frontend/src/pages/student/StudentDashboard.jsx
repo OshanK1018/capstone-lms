@@ -5,7 +5,9 @@ import { BookMarked, SquarePen, Brain, ChevronRight } from "lucide-react";
 import { getCurrentUser } from "../../../../backend/authServices.js";
 import { getCoursesForStudent } from "../../../../backend/courseServices.js";
 import { getAssignmentsForCourse } from "../../../../backend/assignmentServices.js";
-import { getQuizzesForCourse } from "../../../../backend/quizServices.js";
+import { getQuizzesForCourse, getQuizAttempts } from "../../../../backend/quizServices.js";
+import { getAnnouncementsForCourse } from "../../../../backend/announcementServices.js";
+import { getCourseGrade } from "../../../../backend/gradingServices.js";
 
 // Temporary frontend data until backend API integration is connected
 import {
@@ -13,8 +15,8 @@ import {
     //enrolledCourses,
     //upcomingAssignments,
     //upcomingQuizzes,
-    announcements,
-    recentGrades,
+    // announcements,
+    // recentGrades,
 } from "../../data/studentData";
 
 const assignmentSubmissionsKey = "assignmentSubmissions";
@@ -52,14 +54,32 @@ function EmptyState({ title, message, actionText, actionLink }) {
     );
 }
 
-// Loads the logged-in student and their real enrolled courses from the backend
+function getSemester(startDate) {
+    const date = new Date(startDate);
+    const month = date.getUTCMonth();
+
+    const term =
+        month >= 8
+            ? "Fall"
+            : month === 0
+              ? "Winter"
+              : month <= 4
+                ? "Spring"
+                : "Summer";
+
+    return `${term} ${date.getUTCFullYear()}`;
+}
+
+// Loads the logged in student and their real enrolled courses from the backend
 // Courses are temporarily saved in localStorage so the existing course pages can use them
 function StudentDashboard() {
     const [currentStudent, setCurrentStudent] = useState(null);
     const [studentCourses, setStudentCourses] = useState([]);
     const [dashboardAssignments, setDashboardAssignments] = useState([]);
     const [dashboardQuizzes, setDashboardQuizzes] = useState([]);
+    const [dashboardAnnouncements, setDashboardAnnouncements] = useState([]);
     const [studentError, setStudentError] = useState("");
+    const [dashboardGrades, setDashboardGrades] = useState([]);
 
     useEffect(() => {
         async function loadStudentDashboard() {
@@ -113,7 +133,7 @@ function StudentDashboard() {
 
             setStudentCourses(courses);
 
-            const [assignmentResults, quizResults] = await Promise.all([
+            const [ assignmentResults, quizResults, announcementResults, gradeResults, ] = await Promise.all([
                 Promise.all(
                     courses.map(async (course) => {
                         const result = await getAssignmentsForCourse(course.id);
@@ -129,21 +149,92 @@ function StudentDashboard() {
                 ),
                 Promise.all(
                     courses.map(async (course) => {
-                        const result = await getQuizzesForCourse(course.id);
+                        const result =
+                            await getQuizzesForCourse(course.id);
 
-                        return (result.data?.quizzes || []).map((quiz) => ({
+                        const quizzes = (
+                            result.data?.quizzes || []
+                        ).map((quiz) => ({
                             id: quiz.quiz_id,
                             courseId: course.id,
                             courseCode: course.code,
                             title: quiz.title,
                             dueDate: quiz.due_date?.slice(0, 10),
                         }));
+
+                        return Promise.all(
+                            quizzes.map(async (quiz) => {
+                                const attemptResult =
+                                    await getQuizAttempts(quiz.id);
+
+                                const attempts =
+                                    attemptResult.data?.attempts || [];
+
+                                const latestAttempt = [...attempts].sort(
+                                    (first, second) =>
+                                        new Date(second.attempt_date) -
+                                        new Date(first.attempt_date)
+                                )[0];
+
+                                return {
+                                    ...quiz,
+                                    backendAttempt: latestAttempt
+                                        ? {
+                                            status: "Completed",
+                                            score: latestAttempt.score,
+                                        }
+                                        : null,
+                                };
+                            })
+                        );
+                    })
+                ),
+                Promise.all(
+                    courses.map(async (course) => {
+                        const result =
+                            await getAnnouncementsForCourse(course.id);
+
+                        return (
+                            result.data?.announcements || []
+                        ).map((announcement) => ({
+                            id: announcement.announcement_id,
+                            courseId: course.id,
+                            courseCode: course.code,
+                            title: announcement.title,
+                            message: announcement.message,
+                            date:
+                                announcement.date_posted?.slice(0, 10),
+                        }));
+                    })
+                ),
+                Promise.all(
+                    courses.map(async (course) => {
+                        const result = await getCourseGrade(
+                            studentId,
+                            course.id
+                        );
+
+                        if (!result.success || !result.data?.grade) {
+                            return null;
+                        }
+
+                        const grade = result.data.grade;
+
+                        return {
+                            id: grade.grade_id,
+                            courseCode: course.code,
+                            title: course.title,
+                            score: grade.score,
+                            letterGrade: grade.letter_grade,
+                        };
                     })
                 ),
             ]);
 
             setDashboardAssignments(assignmentResults.flat());
             setDashboardQuizzes(quizResults.flat());
+            setDashboardAnnouncements(announcementResults.flat());
+            setDashboardGrades(gradeResults.filter(Boolean));
             // Temporarily lets the other student pages use these real courses.
             localStorage.setItem(
                 "studentCourses",
@@ -173,24 +264,6 @@ function StudentDashboard() {
 
     const quizAttempts = JSON.parse(
         localStorage.getItem(quizAttemptsKey) || "[]"
-    );
-
-    const studentCourseCodes = studentCourses.map((course) => course.code);
-
-    // const dashboardAssignments = upcomingAssignments.filter((assignment) =>
-    //     studentCourseCodes.includes(assignment.courseCode)
-    // );
-
-    // const dashboardQuizzes = upcomingQuizzes.filter((quiz) =>
-    //     studentCourseCodes.includes(quiz.courseCode)
-    // );
-
-    const dashboardAnnouncements = announcements.filter((announcement) =>
-        studentCourseCodes.includes(announcement.courseCode)
-    );
-
-    const dashboardGrades = recentGrades.filter((grade) =>
-        studentCourseCodes.includes(grade.courseCode)
     );
 
     const today = new Date();
@@ -225,11 +298,13 @@ function StudentDashboard() {
                     (course) => course.code === quiz.courseCode
                 );
 
-                const attempt = quizAttempts.find(
+                const localAttempt = quizAttempts.find(
                     (attempt) =>
                         String(attempt.quizId) === String(quiz.id) &&
                         String(attempt.courseId) === String(course?.id)
                 );
+
+                const attempt = quiz.backendAttempt || localAttempt;
 
                 return (
                     getDate(quiz.dueDate) >= today &&
@@ -250,6 +325,10 @@ function StudentDashboard() {
         currentStudent?.user_id ??
         currentStudent?.id ??
         (studentError ? "Unavailable" : "Loading...");
+    const dashboardTerm =
+    studentCourses.length > 0
+        ? getSemester(studentCourses[0].startDate)
+        : "No active term";
 
     return (
         <main className="dashboard">
@@ -274,7 +353,7 @@ function StudentDashboard() {
 
                 <div className="dashboard__term">
                     <span>TERM:</span>
-                    <strong>{studentProfile.term}</strong>
+                    <strong>{dashboardTerm}</strong>
                 </div>
             </section>
 
@@ -308,7 +387,13 @@ function StudentDashboard() {
 
                     <div>
                         <span>Upcoming Quizzes</span>
-                        <strong>{dashboardQuizzes.length}</strong>
+                        <strong>
+                            {
+                                dashboardToDo.filter(
+                                    (item) => item.type === "Quiz"
+                                ).length
+                            }
+                        </strong>
                     </div>
                 </article>
             </section>
@@ -428,7 +513,11 @@ function StudentDashboard() {
                                         <p>{grade.courseCode}</p>
                                     </div>
 
-                                    <strong>{grade.score}</strong>
+                                    <strong>
+                                        {grade.score !== null
+                                            ? `${grade.score}%`
+                                            : grade.letterGrade}
+                                    </strong>
                                 </div>
                             ))
                         ) : (

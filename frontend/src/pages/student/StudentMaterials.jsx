@@ -1,60 +1,68 @@
 import "./CoursePages.css";
 import "./StudentMaterials.css";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-
-// Temporary frontend data until backend API integration is connected
-import {
-    enrolledCourses,
-    courseMaterials,
-} from "../../data/studentData";
+import { getCourseById } from "../../../../backend/courseServices.js";
 
 function StudentMaterials() {
     const { courseId } = useParams();
 
-    // Integration point: fetch the student's enrolled course data from the backend API
-    const selectedCourse = enrolledCourses.find(
-        (course) => String(course.id) === courseId
-    );
+    const [course, setCourse] = useState(null);
+    const [materialsLoading, setMaterialsLoading] = useState(true);
+    const [materialsError, setMaterialsError] = useState("");
 
-    // Integration point: fetch materials for the selected course from the backend API
-    const materials = courseMaterials.filter(
-        (material) => material.courseCode === selectedCourse?.code
-    );
+    // Loads the instructor provided course materials link
+    useEffect(() => {
+        async function loadMaterials() {
+            const result = await getCourseById(courseId);
 
-    // Placeholder until real course material files are provided by the backend
-    function handleViewMaterial(materialTitle) {
-        window.alert(
-            `${materialTitle} will open when course material files are connected.`
-        );
-    }
+            if (!result.success) {
+                setMaterialsError(
+                    result.error || "Unable to load course materials."
+                );
+                setMaterialsLoading(false);
+                return;
+            }
+
+            setCourse(result.data?.course || null);
+            setMaterialsLoading(false);
+        }
+
+        loadMaterials();
+    }, [courseId]);
 
     return (
         <main className="course-page">
             <section className="course-page__card">
                 <h1>Course Materials</h1>
 
-                {materials.length > 0 ? (
-                    materials.map((material) => (
-                        <div className="material-row" key={material.id}>
-                            <div>
-                                <h2>{material.title}</h2>
-                                <p>{material.type}</p>
-                            </div>
-
-                            <button
-                                type="button"
-                                className="material-row__button"
-                                onClick={() =>
-                                    handleViewMaterial(material.title)
-                                }
-                            >
-                                View
-                            </button>
+                {materialsLoading ? (
+                    <p className="course-page__empty">
+                        Loading course materials...
+                    </p>
+                ) : materialsError ? (
+                    <p className="course-page__empty">
+                        {materialsError}
+                    </p>
+                ) : course?.materials_url ? (
+                    <div className="material-row">
+                        <div>
+                            <h2>{course.title} Materials</h2>
+                            <p>Instructor-provided course resources</p>
                         </div>
-                    ))
+
+                        <a
+                            className="material-row__button"
+                            href={course.materials_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            View
+                        </a>
+                    </div>
                 ) : (
                     <p className="course-page__empty">
-                        No materials posted for this course.
+                        No materials posted for this course
                     </p>
                 )}
             </section>
