@@ -31,7 +31,12 @@ import {
 import {
   createQuiz,
   createQuizQuestion,
+  deleteQuizQuestion,
+  getQuizAttempts,
+  getQuizQuestions,
   getQuizzesForCourse,
+  updateQuiz,
+  updateQuizQuestion,
 } from "../../backend/quizServices.js";
 
 import "./InstructorQuizzes.css";
@@ -66,38 +71,6 @@ const temporaryCategories = [
   "Final Exam",
 ];
 
-/*
- * Attempts remain temporary because the
- * current service file retrieves attempts
- * by student, not by quiz.
- */
-const temporaryAttempts = [
-  {
-    id: 1,
-    studentId: "10024567",
-    studentName: "Alex Johnson",
-    score: 90,
-    submittedAt: "August 10, 2026",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    studentId: "10024568",
-    studentName: "Jordan Smith",
-    score: 85,
-    submittedAt: "August 10, 2026",
-    status: "Completed",
-  },
-  {
-    id: 3,
-    studentId: "10024569",
-    studentName: "Taylor Brown",
-    score: 100,
-    submittedAt: "August 11, 2026",
-    status: "Completed",
-  },
-];
-
 function getResponseData(result) {
   return result?.data ?? result;
 }
@@ -128,6 +101,91 @@ function getQuizzesFromResult(result) {
   }
 
   return [];
+}
+
+
+function getQuizQuestionsFromResult(result) {
+  const data = getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.questions)) {
+    return data.questions;
+  }
+
+  if (Array.isArray(data?.quiz_questions)) {
+    return data.quiz_questions;
+  }
+
+  return [];
+}
+
+function getQuizAttemptsFromResult(result) {
+  const data = getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.attempts)) {
+    return data.attempts;
+  }
+
+  if (Array.isArray(data?.quiz_attempts)) {
+    return data.quiz_attempts;
+  }
+
+  return [];
+}
+
+function normalizeAttempt(attempt, index) {
+  const studentID =
+    attempt.student_id ??
+    attempt.studentId ??
+    attempt.user_id ??
+    attempt.userId ??
+    "";
+
+  return {
+    ...attempt,
+
+    id:
+      attempt.id ??
+      attempt.attempt_id ??
+      `attempt-${index}`,
+
+    studentId:
+      String(studentID),
+
+    studentName:
+      attempt.student_name ??
+      attempt.studentName ??
+      attempt.name ??
+      (studentID
+        ? `Student ${studentID}`
+        : "Student"),
+
+    score:
+      Number(
+        attempt.score ??
+        attempt.grade ??
+        0
+      ),
+
+    submittedAt:
+      attempt.submitted_at ??
+      attempt.submittedAt ??
+      attempt.attempt_date ??
+      attempt.date_taken ??
+      attempt.created_at ??
+      "Not provided",
+
+    status:
+      attempt.status ??
+      "Completed",
+  };
 }
 
 function normalizeCourse(course, index) {
@@ -167,6 +225,15 @@ function normalizeQuestion(
   question,
   index
 ) {
+  const correctAnswer =
+    question.shortAnswer ??
+    question.correct_answer ??
+    "";
+
+  const hasStoredChoices =
+    Array.isArray(question.choices) &&
+    question.choices.length > 0;
+
   return {
     ...question,
 
@@ -174,6 +241,11 @@ function normalizeQuestion(
       question.id ??
       question.question_id ??
       `question-${index}`,
+
+    backendQuestionId:
+      question.question_id ??
+      question.backendQuestionId ??
+      null,
 
     type:
       question.type ??
@@ -193,16 +265,12 @@ function normalizeQuestion(
       ),
 
     choices:
-      Array.isArray(
-        question.choices
-      )
+      hasStoredChoices
         ? question.choices
         : [],
 
     shortAnswer:
-      question.shortAnswer ??
-      question.correct_answer ??
-      "",
+      correctAnswer,
   };
 }
 
@@ -382,6 +450,21 @@ function InstructorQuizzes() {
     selectedAttempt,
     setSelectedAttempt,
   ] = useState(null);
+
+  const [
+    quizAttempts,
+    setQuizAttempts,
+  ] = useState([]);
+
+  const [
+    deletedQuestionIds,
+    setDeletedQuestionIds,
+  ] = useState([]);
+
+  const [
+    isManaging,
+    setIsManaging,
+  ] = useState(false);
 
   const [
     formError,
@@ -1091,13 +1174,16 @@ function InstructorQuizzes() {
 
       setIsCreating(true);
 
+      const formattedDueDate =
+        `${quizForm.dueDate} 23:59:59`;
+
       const quizResult =
         await createQuiz(
           Number(
             quizForm.courseId
           ),
           quizForm.title.trim(),
-          quizForm.dueDate
+          formattedDueDate
         );
 
       if (!quizResult.success) {
@@ -1192,43 +1278,83 @@ function InstructorQuizzes() {
       resetCreateQuiz();
     };
 
-  const handleManageQuiz = (
-    quiz
-  ) => {
-    setSelectedQuiz({
-      ...quiz,
+  const handleManageQuiz =
+    async (quiz) => {
+      setSelectedAttempt(null);
+      setQuizAttempts([]);
+      setDeletedQuestionIds([]);
+      setSaveMessage("");
+      setManageError("");
+      setIsManaging(true);
 
-      questions:
-        Array.isArray(
-          quiz.questions
-        )
-          ? quiz.questions.map(
-              (question) => ({
-                ...question,
+      const questionResult =
+        await getQuizQuestions(
+          quiz.id
+        );
 
-                choices:
-                  Array.isArray(
-                    question.choices
-                  )
-                    ? question.choices.map(
-                        (choice) => ({
-                          ...choice,
-                        })
-                      )
-                    : [],
-              })
+      const attemptResult =
+        await getQuizAttempts(
+          quiz.id
+        );
+
+      const backendQuestions =
+        questionResult.success
+          ? getQuizQuestionsFromResult(
+              questionResult
             )
-          : [],
-    });
+          : [];
 
-    setSelectedAttempt(null);
+      const backendAttempts =
+        attemptResult.success
+          ? getQuizAttemptsFromResult(
+              attemptResult
+            )
+          : [];
 
-    setSaveMessage("");
+      const normalizedQuestions =
+        backendQuestions.map(
+          (question, index) =>
+            normalizeQuestion(
+              question,
+              index
+            )
+        );
 
-    setManageError("");
+      const normalizedAttempts =
+        backendAttempts.map(
+          (attempt, index) =>
+            normalizeAttempt(
+              attempt,
+              index
+            )
+        );
 
-    setShowManageModal(true);
-  };
+      setSelectedQuiz({
+        ...quiz,
+
+        questions:
+          normalizedQuestions,
+      });
+
+      setQuizAttempts(
+        normalizedAttempts
+      );
+
+      if (!questionResult.success) {
+        setManageError(
+          questionResult.error ||
+            "Unable to load quiz questions."
+        );
+      } else if (!attemptResult.success) {
+        setManageError(
+          attemptResult.error ||
+            "Unable to load quiz attempts."
+        );
+      }
+
+      setIsManaging(false);
+      setShowManageModal(true);
+    };
 
   const handleManageQuizChange = (
     event
@@ -1565,6 +1691,24 @@ function InstructorQuizzes() {
       return;
     }
 
+    const questionToRemove =
+      selectedQuiz.questions.find(
+        (question) =>
+          question.id ===
+          questionId
+      );
+
+    if (
+      questionToRemove?.backendQuestionId
+    ) {
+      setDeletedQuestionIds(
+        (previousIds) => [
+          ...previousIds,
+          questionToRemove.backendQuestionId,
+        ]
+      );
+    }
+
     setSelectedQuiz(
       (previousQuiz) => ({
         ...previousQuiz,
@@ -1582,67 +1726,205 @@ function InstructorQuizzes() {
   };
 
   /*
-   * No update-quiz service is currently
-   * connected, so Manage Quiz changes
-   * remain frontend-only.
+   * Save quiz details and question changes
+   * through the backend quiz services.
    */
-  const handleSaveQuiz = () => {
-    if (
-      !selectedQuiz.title.trim() ||
-      !selectedQuiz.courseId
-    ) {
-      setManageError(
-        "Please complete all required quiz fields."
-      );
+  const handleSaveQuiz =
+    async () => {
+      if (
+        !selectedQuiz.title.trim() ||
+        !selectedQuiz.courseId
+      ) {
+        setManageError(
+          "Please complete all required quiz fields."
+        );
 
-      return;
-    }
+        return;
+      }
 
-    if (
-      selectedQuiz.questions
-        .length > 0 &&
-      questionsAreInvalid(
+      if (
         selectedQuiz.questions
-      )
-    ) {
-      setManageError(
-        "Complete every question, answer choice, and correct answer."
-      );
-
-      return;
-    }
-
-    const updatedQuiz = {
-      ...selectedQuiz,
-
-      timeLimit:
-        Number(
-          selectedQuiz.timeLimit ||
-            0
-        ),
-    };
-
-    setQuizzes(
-      (previousQuizzes) =>
-        previousQuizzes.map(
-          (quiz) =>
-            quiz.id ===
-            updatedQuiz.id
-              ? updatedQuiz
-              : quiz
+          .length > 0 &&
+        questionsAreInvalid(
+          selectedQuiz.questions
         )
-    );
+      ) {
+        setManageError(
+          "Complete every question, answer choice, and correct answer."
+        );
 
-    setSelectedQuiz(
-      updatedQuiz
-    );
+        return;
+      }
 
-    setManageError("");
+      setIsManaging(true);
+      setManageError("");
+      setSaveMessage("");
 
-    setSaveMessage(
-      "Quiz changes saved temporarily."
-    );
-  };
+      const formattedDueDate =
+        selectedQuiz.dueDate
+          ? selectedQuiz.dueDate.includes(
+              ":"
+            )
+            ? selectedQuiz.dueDate
+            : `${selectedQuiz.dueDate} 23:59:59`
+          : null;
+
+      const quizResult =
+        await updateQuiz(
+          selectedQuiz.id,
+          {
+            title:
+              selectedQuiz.title.trim(),
+
+            course_id:
+              Number(
+                selectedQuiz.courseId
+              ),
+
+            due_date:
+              formattedDueDate,
+          }
+        );
+
+      if (!quizResult.success) {
+        setIsManaging(false);
+
+        setManageError(
+          quizResult.error ||
+            "Unable to update the quiz."
+        );
+
+        return;
+      }
+
+      for (
+        const questionId of
+        deletedQuestionIds
+      ) {
+        const deleteResult =
+          await deleteQuizQuestion(
+            questionId
+          );
+
+        if (!deleteResult.success) {
+          setIsManaging(false);
+
+          setManageError(
+            deleteResult.error ||
+              "The quiz was updated, but a deleted question could not be removed."
+          );
+
+          return;
+        }
+      }
+
+      for (
+        const question of
+        selectedQuiz.questions
+      ) {
+        const correctAnswer =
+          getCorrectAnswer(
+            question
+          );
+
+        let questionResult;
+
+        if (
+          question.backendQuestionId
+        ) {
+          questionResult =
+            await updateQuizQuestion(
+              question.backendQuestionId,
+              {
+                question_text:
+                  question.text.trim(),
+
+                correct_answer:
+                  correctAnswer,
+
+                score:
+                  Number(
+                    question.points
+                  ),
+              }
+            );
+        } else {
+          questionResult =
+            await createQuizQuestion(
+              Number(
+                selectedQuiz.id
+              ),
+              question.text.trim(),
+              correctAnswer,
+              Number(
+                question.points
+              )
+            );
+        }
+
+        if (!questionResult.success) {
+          setIsManaging(false);
+
+          setManageError(
+            questionResult.error ||
+              "The quiz was updated, but one or more questions could not be saved."
+          );
+
+          return;
+        }
+      }
+
+      const courseInformation =
+        courses.find(
+          (course) =>
+            String(course.id) ===
+            String(
+              selectedQuiz.courseId
+            )
+        );
+
+      if (courseInformation) {
+        await reloadQuizzesForCourse(
+          courseInformation
+        );
+      }
+
+      const refreshedQuestions =
+        await getQuizQuestions(
+          selectedQuiz.id
+        );
+
+      if (
+        refreshedQuestions.success
+      ) {
+        const questionList =
+          getQuizQuestionsFromResult(
+            refreshedQuestions
+          );
+
+        setSelectedQuiz(
+          (previousQuiz) => ({
+            ...previousQuiz,
+
+            questions:
+              questionList.map(
+                (question, index) =>
+                  normalizeQuestion(
+                    question,
+                    index
+                  )
+              ),
+          })
+        );
+      }
+
+      setDeletedQuestionIds([]);
+      setIsManaging(false);
+
+      setSaveMessage(
+        "Quiz changes saved successfully."
+      );
+    };
 
   return (
     <div className="quizzes-layout">
@@ -3089,12 +3371,11 @@ function InstructorQuizzes() {
                       />
 
                       <p>
-                        Question details
-                        were not included
-                        in the quiz response.
-                        You can still add
-                        questions locally
-                        here.
+                        No questions are
+                        currently stored for
+                        this quiz. Use Add
+                        Question to create
+                        one.
                       </p>
                     </div>
                   )}
@@ -3116,12 +3397,17 @@ function InstructorQuizzes() {
                     onClick={
                       handleSaveQuiz
                     }
+                    disabled={
+                      isManaging
+                    }
                   >
                     <Save
                       size={17}
                     />
 
-                    Save Quiz Changes
+                    {isManaging
+                      ? "Saving..."
+                      : "Save Quiz Changes"}
                   </button>
 
                   <p
@@ -3134,15 +3420,14 @@ function InstructorQuizzes() {
                         "#64748b",
                     }}
                   >
-                    Editing an existing
-                    quiz is currently
-                    frontend-only because
-                    no update-quiz service
-                    is connected.
+                    Quiz details and
+                    questions are saved
+                    through the connected
+                    backend quiz services.
                   </p>
                 </section>
 
-                {/* Attempts remain temporary */}
+                {/* Real quiz attempts from backend */}
                 <section className="quiz-attempt-panel">
                   <div className="quiz-attempt-panel-header">
                     <div>
@@ -3162,7 +3447,7 @@ function InstructorQuizzes() {
                   </div>
 
                   <div className="quiz-attempt-list">
-                    {temporaryAttempts.map(
+                    {quizAttempts.map(
                       (
                         attempt
                       ) => (
@@ -3206,6 +3491,18 @@ function InstructorQuizzes() {
                       )
                     )}
                   </div>
+
+                  {quizAttempts.length ===
+                    0 && (
+                    <div className="quiz-select-attempt">
+                      <Users size={30} />
+
+                      <p>
+                        No quiz attempts
+                        found for this quiz.
+                      </p>
+                    </div>
+                  )}
 
                   {selectedAttempt ? (
                     <div className="quiz-attempt-details">
@@ -3288,12 +3585,10 @@ function InstructorQuizzes() {
                         "#64748b",
                     }}
                   >
-                    Attempts are still
-                    temporary because the
-                    current service only
-                    retrieves quiz attempts
-                    by student, not by
-                    selected quiz.
+                    Attempts shown here
+                    are loaded from the
+                    selected quiz through
+                    the backend service.
                   </p>
                 </section>
               </div>

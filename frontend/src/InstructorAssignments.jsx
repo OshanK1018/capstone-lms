@@ -720,13 +720,16 @@ function InstructorAssignments() {
 
       setIsCreating(true);
 
+      const formattedDueDate =
+        `${assignmentForm.dueDate} 23:59:59`;
+
       const result =
         await createAssignment(
           Number(
             assignmentForm.courseId
           ),
           assignmentForm.title.trim(),
-          `${assignmentForm.dueDate} 23:59:59`,
+          formattedDueDate,
           Number(
             assignmentForm.points
           ),
