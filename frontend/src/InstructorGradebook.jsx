@@ -28,18 +28,14 @@ import {
 } from "../../backend/courseServices.js";
 
 import {
+  assignCourseGrade,
+  getGradesForCourse,
   updateCourseGrade,
 } from "../../backend/gradingServices.js";
 
 import "./InstructorGradebook.css";
 
-/*
- * The current backend does not provide
- * grading-category/weight services yet.
- *
- * These categories are therefore used
- * locally by the Gradebook UI.
- */
+
 const defaultGradeCategories = [
   {
     name: "Assignments",
@@ -107,6 +103,24 @@ function getStudentsFromResult(result) {
   return [];
 }
 
+
+function getGradesFromResult(result) {
+  const data =
+    getResponseData(result);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    Array.isArray(data?.grades)
+  ) {
+    return data.grades;
+  }
+
+  return [];
+}
+
 function normalizeCourse(
   course,
   index
@@ -146,7 +160,8 @@ function normalizeCourse(
 function normalizeStudent(
   student,
   course,
-  index
+  index,
+  courseGrade = null
 ) {
   const firstName =
     student.firstName ??
@@ -201,9 +216,25 @@ function normalizeStudent(
     },
 
     savedLetterGrade:
+      courseGrade?.letter_grade ??
       student.letter_grade ??
       student.letterGrade ??
       "",
+
+    savedOverallGrade:
+      courseGrade?.score !== undefined &&
+      courseGrade?.score !== null
+        ? Number(courseGrade.score)
+        : student.score !== undefined &&
+          student.score !== null
+        ? Number(student.score)
+        : null,
+
+    hasSavedGrade:
+      Boolean(courseGrade),
+
+    hasLocalCategoryEdits:
+      false,
   };
 }
 
@@ -213,6 +244,19 @@ function normalizeStudent(
 const calculateOverallGrade = (
   student
 ) => {
+  if (
+    !student?.hasLocalCategoryEdits &&
+    student?.savedOverallGrade !== null &&
+    student?.savedOverallGrade !== undefined &&
+    !Number.isNaN(
+      Number(student.savedOverallGrade)
+    )
+  ) {
+    return Math.round(
+      Number(student.savedOverallGrade)
+    );
+  }
+
   const total =
     defaultGradeCategories.reduce(
       (sum, category) => {
@@ -241,17 +285,10 @@ const calculateOverallGrade = (
 const getLetterGrade = (
   grade
 ) => {
-  if (grade >= 93) return "A";
-  if (grade >= 90) return "A-";
-  if (grade >= 87) return "B+";
-  if (grade >= 83) return "B";
-  if (grade >= 80) return "B-";
-  if (grade >= 77) return "C+";
-  if (grade >= 73) return "C";
-  if (grade >= 70) return "C-";
-  if (grade >= 67) return "D+";
-  if (grade >= 63) return "D";
-  if (grade >= 60) return "D-";
+  if (grade >= 90) return "A";
+  if (grade >= 80) return "B";
+  if (grade >= 70) return "C";
+  if (grade >= 60) return "D";
 
   return "F";
 };
@@ -398,10 +435,17 @@ function InstructorGradebook() {
               return [];
             }
 
-            const rosterResult =
-              await getStudentsInCourse(
+            const [
+              rosterResult,
+              gradeResult,
+            ] = await Promise.all([
+              getStudentsInCourse(
                 course.id
-              );
+              ),
+              getGradesForCourse(
+                course.id
+              ),
+            ]);
 
             if (
               !rosterResult.success
@@ -414,13 +458,37 @@ function InstructorGradebook() {
                 rosterResult
               );
 
+            const courseGrades =
+              gradeResult.success
+                ? getGradesFromResult(
+                    gradeResult
+                  )
+                : [];
+
             return students.map(
-              (student, index) =>
-                normalizeStudent(
+              (student, index) => {
+                const studentID =
+                  student.student_id ??
+                  student.studentId ??
+                  student.user_id ??
+                  student.id;
+
+                const savedGrade =
+                  courseGrades.find(
+                    (grade) =>
+                      String(
+                        grade.student_id
+                      ) ===
+                      String(studentID)
+                  ) ?? null;
+
+                return normalizeStudent(
                   student,
                   course,
-                  index
-                )
+                  index,
+                  savedGrade
+                );
+              }
             );
           }
         );
@@ -619,6 +687,9 @@ function InstructorGradebook() {
           [categoryName]:
             updatedValue,
         },
+
+        hasLocalCategoryEdits:
+          true,
       })
     );
 
@@ -649,8 +720,13 @@ function InstructorGradebook() {
       setIsSaving(true);
       setSaveMessage("");
 
+      const saveGrade =
+        selectedStudent.hasSavedGrade
+          ? updateCourseGrade
+          : assignCourseGrade;
+
       const result =
-        await updateCourseGrade(
+        await saveGrade(
           Number(
             selectedStudent.backendStudentId
           ),
@@ -676,8 +752,8 @@ function InstructorGradebook() {
        * Keep the category values in
        * frontend state so the UI updates.
        *
-       * The backend currently persists
-       * the final letter grade only.
+       * The backend persists the final
+       * numerical score and letter grade.
        */
       setGradeData(
         (previousData) =>
@@ -694,6 +770,15 @@ function InstructorGradebook() {
 
                     savedLetterGrade:
                       letterGrade,
+
+                    savedOverallGrade:
+                      overallGrade,
+
+                    hasSavedGrade:
+                      true,
+
+                    hasLocalCategoryEdits:
+                      false,
                   }
                 : student
           )
@@ -705,6 +790,15 @@ function InstructorGradebook() {
 
           savedLetterGrade:
             letterGrade,
+
+          savedOverallGrade:
+            overallGrade,
+
+          hasSavedGrade:
+            true,
+
+          hasLocalCategoryEdits:
+            false,
         })
       );
 
@@ -1444,6 +1538,7 @@ function InstructorGradebook() {
                 are calculated in the
                 frontend. Saving sends
                 the resulting final
+                numerical score and
                 letter grade to the
                 grading service.
               </p>
