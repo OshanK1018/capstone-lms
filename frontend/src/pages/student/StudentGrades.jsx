@@ -1,121 +1,111 @@
 import "./CoursePages.css";
 import "./StudentGrades.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-
-// Temporary frontend data until backend API integration is connected
-import {
-    detailedGrades,
-    enrolledCourses,
-} from "../../data/studentData";
-
-const gradeFilters = ["All", "Graded", "Pending", "Missing"];
-
-function getDate(dateText) {
-    return new Date(`${dateText}T00:00:00`);
-}
-
-function formatDisplayDate(dateText) {
-    return getDate(dateText).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-    });
-}
-
-function getGradePercent(grade) {
-    if (grade.score === null) {
-        return null;
-    }
-
-    return Math.round((grade.score / grade.pointsPossible) * 100);
-}
+import { getCurrentUser } from "../../../../backend/authServices.js";
+import { getCourseGrade } from "../../../../backend/gradingServices.js";
 
 function StudentGrades() {
     const { courseId } = useParams();
-    const [filter, setFilter] = useState("All");
 
-    // Integration point: fetch the student's enrolled course data from the backend API
-    const selectedCourse = enrolledCourses.find(
-        (course) => String(course.id) === courseId
-    );
+    const [grade, setGrade] = useState(null);
+    const [gradeLoading, setGradeLoading] = useState(true);
+    const [gradeError, setGradeError] = useState("");
 
-    // Integration point: fetch grades for the selected course from the backend API
-    const grades = detailedGrades.filter(
-        (grade) => grade.courseCode === selectedCourse?.code
-    );
+    useEffect(() => {
+        async function loadGrade() {
+            setGradeLoading(true);
+            setGradeError("");
 
-    const filteredGrades = grades.filter((grade) => {
-        if (filter === "All") {
-            return true;
+            const userResult = await getCurrentUser();
+
+            if (!userResult.success) {
+                setGradeError(
+                    userResult.error ||
+                    "Unable to load student."
+                );
+                setGradeLoading(false);
+                return;
+            }
+
+            const user = userResult.data?.user;
+            const studentId =
+                user?.user_id ?? user?.id;
+
+            const gradeResult =
+                await getCourseGrade(
+                    studentId,
+                    courseId
+                );
+
+            if (!gradeResult.success) {
+                if (
+                    gradeResult.error
+                        ?.toLowerCase()
+                        .includes("grade not found")
+                ) {
+                    setGrade(null);
+                } else {
+                    setGradeError(
+                        gradeResult.error ||
+                        "Unable to load grade."
+                    );
+                }
+
+                setGradeLoading(false);
+                return;
+            }
+
+            setGrade(gradeResult.data?.grade || null);
+            setGradeLoading(false);
         }
 
-        return grade.status === filter;
-    });
+        loadGrade();
+    }, [courseId]);
 
     return (
         <main className="course-page">
             <section className="course-page__card">
-                <div className="course-page__header-row">
-                    <h1>Grades</h1>
+                <h1>Grades</h1>
 
-                    <div className="grade-filters">
-                        {gradeFilters.map((gradeFilter) => (
-                            <button
-                                type="button"
-                                className={filter === gradeFilter ? "active" : ""}
-                                onClick={() => setFilter(gradeFilter)}
-                                key={gradeFilter}
-                            >
-                                {gradeFilter}
-                            </button>
-                        ))}
+                {gradeLoading ? (
+                    <p className="course-page__empty">
+                        Loading grade...
+                    </p>
+                ) : gradeError ? (
+                    <p className="course-page__empty">
+                        {gradeError}
+                    </p>
+                ) : grade ? (
+                    <div className="grade-row">
+                        <div>
+                            <h2>Overall Course Grade</h2>
+
+                            <p>
+                                Grade posted by your instructor
+                            </p>
+                        </div>
+
+                        <div className="grade-row__details">
+                            <span className="grade-row__status grade-row__status--graded">
+                                Graded
+                            </span>
+
+                            <strong>
+                                {grade.score !== null
+                                    ? `${grade.score}%`
+                                    : "No score"}
+                            </strong>
+
+                            <p>
+                                Letter Grade:{" "}
+                                {grade.letter_grade}
+                            </p>
+                        </div>
                     </div>
-                </div>
-
-                {filteredGrades.length > 0 ? (
-                    filteredGrades.map((grade) => {
-                        const gradePercent = getGradePercent(grade);
-
-                        return (
-                            <div className="grade-row" key={grade.id}>
-                                <div>
-                                    <h2>{grade.title}</h2>
-
-                                    <p>
-                                        {grade.category} • Due{" "}
-                                        {formatDisplayDate(grade.dueDate)}
-                                    </p>
-
-                                    <p className="grade-row__feedback">
-                                        Feedback: {grade.feedback}
-                                    </p>
-                                </div>
-
-                                <div className="grade-row__details">
-                                    <span
-                                        className={`grade-row__status grade-row__status--${grade.status.toLowerCase()}`}
-                                    >
-                                        {grade.status}
-                                    </span>
-
-                                    <strong>
-                                        {grade.score === null
-                                            ? `-- / ${grade.pointsPossible}`
-                                            : `${grade.score} / ${grade.pointsPossible}`}
-                                    </strong>
-
-                                    <p>
-                                        {gradePercent === null
-                                            ? "Not graded"
-                                            : `${gradePercent}%`}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })
                 ) : (
                     <p className="course-page__empty">
-                        No grade records match this filter.
+                        No course grade has been posted yet.
                     </p>
                 )}
             </section>
